@@ -1,0 +1,187 @@
+課題5〜10
+
+### 課題: クラスとインターフェースを使ったタスク管理システム
+
+#### 課題の概要
+TypeScriptのオブジェクト型、インターフェース、クラス、モジュール、および関数を使用して、タスク管理システムを作成します。この課題では、ユーザーがタスクを追加、更新、削除、および表示する機能を実装します。
+
+#### 要件
+
+1. **オブジェクト型の使用**
+   - タスク情報を格納するオブジェクト型を定義
+   - タスクの属性をインターフェースで表現
+
+2. **インターフェースの使用**
+   - タスク情報を管理するインターフェースを定義
+   - インターフェースを用いてタスクの型安全を保証
+
+3. **クラスの定義と使用**
+   - タスク管理を行うクラスを定義
+   - メソッドを実装（タスクの追加、更新、削除、表示）
+
+4. **モジュールの使用**
+   - クラスを別ファイルに分割し、インポートして使用
+
+5. **関数の使用**
+   - 各メソッドをクラスのメンバ関数として実装
+
+#### 課題の詳細
+
+1. **インターフェース `Task` を定義して、タスクの属性を表現する**
+2. **クラス `TaskManager` を定義し、タスクの追加、更新、削除、表示を行うメソッドを実装する**
+3. **タスク管理のロジックを `TaskManager` クラス内に実装し、モジュールとして分割する**
+
+### 課題開始時点のプログラム
+
+```typescript
+// task.ts ファイル
+export interface Task {
+  id: number;
+  title: string;
+  description: string;
+  completed: boolean;
+}
+
+// TaskManager.ts ファイル
+import { Task } from './task';
+
+export class TaskManager {
+  private tasks: Task[] = [];
+
+  // addTask メソッドを実装してください
+
+  // updateTask メソッドを実装してください
+
+  // deleteTask メソッドを実装してください
+
+  // listTasks メソッドを実装してください
+}
+
+// main.ts ファイル
+import { TaskManager } from './TaskManager';
+
+const taskManager = new TaskManager();
+
+taskManager.addTask({ id: 1, title: 'Task 1', description: 'First task', completed: false });
+taskManager.addTask({ id: 2, title: 'Task 2', description: 'Second task', completed: false });
+
+console.log('All Tasks:');
+taskManager.listTasks();
+
+taskManager.updateTask(1, { completed: true });
+console.log('Updated Task 1:');
+taskManager.listTasks();
+
+taskManager.deleteTask(2);
+console.log('All Tasks after deletion:');
+taskManager.listTasks();
+```
+
+#### 課題解決のためのヒント
+
+1. **インターフェース `Task` の定義**
+   ```typescript
+   export interface Task {
+     id: number;
+     title: string;
+     description: string;
+     completed: boolean;
+   }
+   ```
+
+2. **クラス `TaskManager` の作成とメソッドの実装**
+   ```typescript
+   import { Task } from './task';
+
+   export class TaskManager {
+     private tasks: Task[] = [];
+
+     addTask(task: Task): void {
+       this.tasks.push(task);
+     }
+
+     updateTask(id: number, updatedTask: Partial<Task>): void {
+       const taskIndex = this.tasks.findIndex(task => task.id === id);
+       if (taskIndex !== -1) {
+         this.tasks[taskIndex] = { ...this.tasks[taskIndex], ...updatedTask };
+       }
+     }
+
+     deleteTask(id: number): void {
+       this.tasks = this.tasks.filter(task => task.id !== id);
+     }
+
+     listTasks(): void {
+       this.tasks.forEach(task => {
+         console.log(task);
+       });
+     }
+   }
+   ```
+
+3. **`main.ts` ファイルの実装**
+   ```typescript
+   import { TaskManager } from './TaskManager';
+
+   const taskManager = new TaskManager();
+
+   taskManager.addTask({ id: 1, title: 'Task 1', description: 'First task', completed: false });
+   taskManager.addTask({ id: 2, title: 'Task 2', description: 'Second task', completed: false });
+
+   console.log('All Tasks:');
+   taskManager.listTasks();
+
+   taskManager.updateTask(1, { completed: true });
+   console.log('Updated Task 1:');
+   taskManager.listTasks();
+
+   taskManager.deleteTask(2);
+   console.log('All Tasks after deletion:');
+   taskManager.listTasks();
+   ```
+
+### 期待する出力の例
+
+```bash
+All Tasks:
+{ id: 1, title: 'Task 1', description: 'First task', completed: false }
+{ id: 2, title: 'Task 2', description: 'Second task', completed: false }
+Updated Task 1:
+{ id: 1, title: 'Task 1', description: 'First task', completed: true }
+{ id: 2, title: 'Task 2', description: 'Second task', completed: false }
+All Tasks after deletion:
+{ id: 1, title: 'Task 1', description: 'First task', completed: true }
+```
+
+#### 入力例
+
+```typescript
+taskManager.addTask({ id: 1, title: 'Task 1', description: 'First task', completed: false });
+taskManager.addTask({ id: 2, title: 'Task 2', description: 'Second task', completed: false });
+
+console.log('All Tasks:');
+taskManager.listTasks();
+
+taskManager.updateTask(1, { completed: true });
+console.log('Updated Task 1:');
+taskManager.listTasks();
+
+taskManager.deleteTask(2);
+console.log('All Tasks after deletion:');
+taskManager.listTasks();
+```
+
+#### 出力例
+
+```bash
+All Tasks:
+{ id: 1, title: 'Task 1', description: 'First task', completed: false }
+{ id: 2, title: 'Task 2', description: 'Second task', completed: false }
+Updated Task 1:
+{ id: 1, title: 'Task 1', description: 'First task', completed: true }
+{ id: 2, title: 'Task 2', description: 'Second task', completed: false }
+All Tasks after deletion:
+{ id: 1, title: 'Task 1', description: 'First task', completed: true }
+```
+
+この課題を通じて、受講者はTypeScriptのオブジェクト型、インターフェース、クラス、モジュール、および関数の使用方法を学びながら、実際のアプリケーションでの使用例を理解することができます。
