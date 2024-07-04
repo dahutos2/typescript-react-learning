@@ -1,0 +1,148 @@
+課題1〜4
+
+了解しました。以下は、課題を解決することで最終的に完成形となるように調整した課題内容です。
+
+### 課題: 基本的なデータ型と構造を使った簡単な計算アプリケーション
+
+#### 課題の概要
+TypeScriptの基本的な型とデータ構造を使用して、簡単な計算アプリケーションを作成します。この課題では、ユーザーが入力した数値に対して加算、減算、乗算、および除算を行う機能を実装します。
+
+#### 要件
+
+1. **プリミティブ型の使用**
+   - 数値、文字列、ブール値の変数を定義
+   - 入力値として数値を受け取り、演算結果を文字列として出力
+
+2. **配列とタプルの使用**
+   - 過去の計算結果を配列に保存
+   - タプルを使用して操作の種類とその結果を保存
+
+3. **Enumの使用**
+   - 計算操作の種類を表すEnumを定義
+
+#### 課題の詳細
+1. Enum `Operation` を定義して、加算、減算、乗算、除算を表現する。
+2. 関数 `calculate` を作成し、2つの数値と計算操作を受け取り、結果を文字列として返す。
+3. 過去の計算結果を保存する配列 `history` を作成し、タプル `[Operation, number]` を使用して保存する。
+4. 関数 `addHistory` を作成し、計算操作と結果を `history` に追加する。
+5. 関数 `printHistory` を作成し、保存された計算結果の履歴を出力する。
+
+### 課題開始時点のプログラム
+
+```typescript
+enum Operation {
+  Add,
+  Subtract,
+  Multiply,
+  Divide
+}
+
+// calculate関数を実装してください
+
+// history配列を作成してください
+
+// addHistory関数を実装してください
+
+// printHistory関数を実装してください
+
+// 以下のコードはテスト用です
+console.log(calculate(10, 5, Operation.Add));
+console.log(calculate(10, 5, Operation.Subtract));
+console.log(calculate(10, 5, Operation.Multiply));
+console.log(calculate(10, 5, Operation.Divide));
+printHistory();
+```
+
+#### 課題解決のためのヒント
+
+1. **Enum `Operation` の定義**
+   ```typescript
+   enum Operation {
+     Add,
+     Subtract,
+     Multiply,
+     Divide
+   }
+   ```
+
+2. **関数 `calculate` の作成**
+   ```typescript
+   function calculate(a: number, b: number, operation: Operation): string {
+     let result: number;
+     switch (operation) {
+       case Operation.Add:
+         result = a + b;
+         break;
+       case Operation.Subtract:
+         result = a - b;
+         break;
+       case Operation.Multiply:
+         result = a * b;
+         break;
+       case Operation.Divide:
+         result = a / b;
+         break;
+       default:
+         throw new Error("Invalid operation");
+     }
+     addHistory(operation, result);
+     return `The result of ${Operation[operation]} operation is ${result}`;
+   }
+   ```
+
+3. **配列 `history` の作成**
+   ```typescript
+   type Calculation = [Operation, number];
+   let history: Calculation[] = [];
+   ```
+
+4. **関数 `addHistory` の作成**
+   ```typescript
+   function addHistory(operation: Operation, result: number) {
+     history.push([operation, result]);
+   }
+   ```
+
+5. **関数 `printHistory` の作成**
+   ```typescript
+   function printHistory() {
+     history.forEach(([operation, result], index) => {
+       console.log(`${index + 1}: ${Operation[operation]} result is ${result}`);
+     });
+   }
+   ```
+
+### 期待する出力の例
+```bash
+The result of Add operation is 15
+The result of Subtract operation is 5
+The result of Multiply operation is 50
+The result of Divide operation is 2
+1: Add result is 15
+2: Subtract result is 5
+3: Multiply result is 50
+4: Divide result is 2
+```
+
+#### 入力例
+```typescript
+console.log(calculate(10, 5, Operation.Add));
+console.log(calculate(10, 5, Operation.Subtract));
+console.log(calculate(10, 5, Operation.Multiply));
+console.log(calculate(10, 5, Operation.Divide));
+printHistory();
+```
+
+#### 出力例
+```bash
+The result of Add operation is 15
+The result of Subtract operation is 5
+The result of Multiply operation is 50
+The result of Divide operation is 2
+1: Add result is 15
+2: Subtract result is 5
+3: Multiply result is 50
+4: Divide result is 2
+```
+
+この課題を通じて、受講者はTypeScriptの基本的な型、配列、タプル、およびEnumの使用方法を学びながら、実際のアプリケーションでの使用例を理解することができます。
