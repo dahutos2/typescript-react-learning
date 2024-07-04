@@ -1,0 +1,221 @@
+課題11〜16
+
+### 課題: ジェネリクスとデコレータを使ったデータ操作ライブラリ
+
+#### 課題の概要
+TypeScriptのジェネリクス、Union型、Intersection型、型アサーション、リテラル型、およびデコレータを使用して、データ操作ライブラリを作成します。この課題では、ユーザーがジェネリックなデータ操作を行うための関数やクラスを実装します。
+
+#### 要件
+
+1. **ジェネリクスの使用**
+   - ジェネリクスを使用して、異なる型のデータを扱う関数やクラスを定義
+
+2. **Union型とIntersection型の使用**
+   - 複数の型を組み合わせたUnion型やIntersection型を定義
+
+3. **型アサーションの使用**
+   - 型アサーションを使用して型を明示的に指定
+
+4. **リテラル型の使用**
+   - リテラル型を使用して、特定の値のみを取る型を定義
+
+5. **デコレータの使用**
+   - クラスやメソッドにデコレータを使用して、追加の機能を実装
+
+#### 課題の詳細
+
+1. **ジェネリック関数 `getArrayLength` を定義して、配列の長さを取得する**
+2. **Union型 `Response` を定義して、成功時とエラー時のレスポンスを表現する**
+3. **Intersection型 `DetailedError` を定義して、エラーメッセージに詳細情報を追加する**
+4. **型アサーションを使用して、未知の型の変数を特定の型にアサートする**
+5. **リテラル型 `Direction` を定義して、特定の方向を表現する**
+6. **デコレータ `logExecutionTime` を定義して、メソッドの実行時間をログに出力する**
+
+### 課題開始時点のプログラム
+
+```typescript
+// generics.ts ファイル
+export function getArrayLength<T>(arr: T[]): number {
+  return arr.length;
+}
+
+// unionIntersection.ts ファイル
+export type SuccessResponse = {
+  success: true;
+  data: any;
+};
+
+export type ErrorResponse = {
+  success: false;
+  error: string;
+};
+
+export type Response = SuccessResponse | ErrorResponse;
+
+export type DetailedError = ErrorResponse & {
+  code: number;
+};
+
+// typeAssertion.ts ファイル
+// 型アサーションを使用してください
+
+// literalTypes.ts ファイル
+// リテラル型 Direction を定義してください
+
+// decorators.ts ファイル
+// デコレータ logExecutionTime を定義してください
+
+// main.ts ファイル
+import { getArrayLength } from './generics';
+import { Response, DetailedError } from './unionIntersection';
+// 他のインポート文を追加してください
+
+// 以下のコードはテスト用です
+console.log(getArrayLength([1, 2, 3, 4])); // 期待出力: 4
+
+const success: Response = { success: true, data: 'OK' };
+const error: Response = { success: false, error: 'Something went wrong' };
+
+console.log(success);
+console.log(error);
+
+const detailedError: DetailedError = { success: false, error: 'Bad Request', code: 400 };
+console.log(detailedError);
+
+// 型アサーションを使用して変数を処理してください
+
+// リテラル型 Direction を使用してください
+
+// デコレータを使用してメソッドの実行時間をログに出力してください
+```
+
+#### 課題解決のためのヒント
+
+1. **ジェネリック関数 `getArrayLength` の定義**
+   ```typescript
+   export function getArrayLength<T>(arr: T[]): number {
+     return arr.length;
+   }
+   ```
+
+2. **Union型 `Response` の定義**
+   ```typescript
+   export type SuccessResponse = {
+     success: true;
+     data: any;
+   };
+
+   export type ErrorResponse = {
+     success: false;
+     error: string;
+   };
+
+   export type Response = SuccessResponse | ErrorResponse;
+   ```
+
+3. **Intersection型 `DetailedError` の定義**
+   ```typescript
+   export type DetailedError = ErrorResponse & {
+     code: number;
+   };
+   ```
+
+4. **型アサーションの使用**
+   ```typescript
+   let someValue: any = "this is a string";
+   let strLength: number = (someValue as string).length;
+   console.log(`The length of the string is ${strLength}`);
+   ```
+
+5. **リテラル型 `Direction` の定義**
+   ```typescript
+   export type Direction = 'North' | 'South' | 'East' | 'West';
+
+   const direction: Direction = 'North';
+   console.log(`The direction is ${direction}`);
+   ```
+
+6. **デコレータ `logExecutionTime` の定義**
+   ```typescript
+   function logExecutionTime(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+     const originalMethod = descriptor.value;
+
+     descriptor.value = function(...args: any[]) {
+       const start = performance.now();
+       const result = originalMethod.apply(this, args);
+       const finish = performance.now();
+       console.log(`${propertyKey} executed in ${finish - start} milliseconds`);
+       return result;
+     };
+
+     return descriptor;
+   }
+
+   class Example {
+     @logExecutionTime
+     compute() {
+       for (let i = 0; i < 1e6; i++) { }
+     }
+   }
+
+   const example = new Example();
+   example.compute();
+   ```
+
+### 期待する出力の例
+
+```bash
+4
+{ success: true, data: 'OK' }
+{ success: false, error: 'Something went wrong' }
+{ success: false, error: 'Bad Request', code: 400 }
+The length of the string is 16
+The direction is North
+compute executed in X milliseconds
+```
+
+#### 入力例
+
+```typescript
+console.log(getArrayLength([1, 2, 3, 4]));
+
+const success: Response = { success: true, data: 'OK' };
+const error: Response = { success: false, error: 'Something went wrong' };
+
+console.log(success);
+console.log(error);
+
+const detailedError: DetailedError = { success: false, error: 'Bad Request', code: 400 };
+console.log(detailedError);
+
+let someValue: any = "this is a string";
+let strLength: number = (someValue as string).length;
+console.log(`The length of the string is ${strLength}`);
+
+const direction: Direction = 'North';
+console.log(`The direction is ${direction}`);
+
+class Example {
+  @logExecutionTime
+  compute() {
+    for (let i = 0; i < 1e6; i++) { }
+  }
+}
+
+const example = new Example();
+example.compute();
+```
+
+#### 出力例
+
+```bash
+4
+{ success: true, data: 'OK' }
+{ success: false, error: 'Something went wrong' }
+{ success: false, error: 'Bad Request', code: 400 }
+The length of the string is 16
+The direction is North
+compute executed in X milliseconds
+```
+
+この課題を通じて、受講者はTypeScriptのジェネリクス、Union型、Intersection型、型アサーション、リテラル型、およびデコレータの使用方法を学びながら、実際のアプリケーションでの使用例を理解することができます。
