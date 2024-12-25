@@ -1,0 +1,27 @@
+.editor-container {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f5f5f5;
+    padding: 10px;
+}
+
+.editor-title {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.editor-controls .btn {
+    margin-left: 5px;
+}
+
+.editor-body {
+    height: 400px;
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import './Timer.css';
 
 interface TimerProps {
   totalSec: number;
@@ -14,13 +15,34 @@ const Timer: React.FC<TimerProps> = ({ totalSec, onTimeUp }) => {
       return;
     }
     const timerId = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerId);
+          onTimeUp();
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearInterval(timerId);
   }, [timeLeft, onTimeUp]);
 
-  return <div>残り時間: {timeLeft}秒</div>;
+  // タイマーのリセット機能
+  const handleReset = () => {
+    setTimeLeft(totalSec);
+  };
+
+  return (
+    <div className='timer-container'>
+      <div className={`timer-display ${timeLeft <= 10 ? 'timer-warning' : ''}`}>
+        残り時間: {timeLeft}秒
+      </div>
+      <button className='btn reset-btn' onClick={handleReset}>
+        リセット
+      </button>
+    </div>
+  );
 };
 
 export default Timer;

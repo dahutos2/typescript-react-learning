@@ -7,6 +7,7 @@ import './styles/style.css';
 function App() {
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [disqualified, setDisqualified] = useState(false);
+  const [timerKey, setTimerKey] = useState(0); // タイマーリセット用のキー
 
   const currentTask = tasksData[currentTaskIndex];
 
@@ -25,6 +26,12 @@ function App() {
 
   const handleTimeUp = () => {
     setDisqualified(true);
+  };
+
+  const handleNextTask = () => {
+    setCurrentTaskIndex((prev) => (prev + 1) % tasksData.length);
+    setDisqualified(false);
+    setTimerKey(prev => prev + 1); // タイマーをリセット
   };
 
   if (!currentTask) {
@@ -48,13 +55,13 @@ function App() {
       <div className='title'>ローカル競プロ学習アプリ</div>
 
       <div className='timer'>
-        <Timer totalSec={currentTask.timeLimitSec} onTimeUp={handleTimeUp} />
+        <Timer key={timerKey} totalSec={currentTask.timeLimitSec} onTimeUp={handleTimeUp} />
       </div>
 
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: '10px' }}>
         <button
           className='btn'
-          onClick={() => setCurrentTaskIndex((prev) => (prev + 1) % tasksData.length)}
+          onClick={handleNextTask}
         >
           次の課題へ
         </button>

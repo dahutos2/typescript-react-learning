@@ -4,6 +4,7 @@ import path from 'path';
 
 const tempDir = path.join(__dirname, '../../temp');
 
+// C#コードのコンパイルと実行
 export function runCsCode(code: string, input: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const csFilePath = path.join(tempDir, 'Program.cs');
@@ -11,22 +12,28 @@ export function runCsCode(code: string, input: string): Promise<string> {
 
     const compileCmd = `csc "${csFilePath}"`;
     const exePath = path.join(tempDir, 'Program.exe');
-    const runCmd = `echo "${input}" | "${exePath}"`;
+    const runCmd = `"${exePath}"`;
 
-    exec(compileCmd, (compileErr, _stdout, compileStderr) => {
+    exec(compileCmd, { cwd: tempDir }, (compileErr, _stdout, compileStderr) => {
       if (compileErr) {
         return reject(new Error('C#コンパイルエラー:\n' + compileStderr));
       }
-      exec(runCmd, (runErr, runStdout, runStderr) => {
+      // 実行時に入力を渡す
+      const child = exec(runCmd, { cwd: tempDir }, (runErr, runStdout, runStderr) => {
         if (runErr) {
           return reject(new Error('C#実行エラー:\n' + runStderr));
         }
-        resolve(runStdout);
+        resolve(runStdout.trim());
       });
+
+      // 標準入力にデータを書き込む
+      child.stdin?.write(input);
+      child.stdin?.end();
     });
   });
 }
 
+// TypeScriptコードのコンパイルと実行
 export function runTsCode(code: string, input: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const tsFilePath = path.join(tempDir, 'temp.ts');
@@ -34,18 +41,23 @@ export function runTsCode(code: string, input: string): Promise<string> {
 
     const compileCmd = `tsc "${tsFilePath}" --outDir "${tempDir}"`;
     const jsFilePath = path.join(tempDir, 'temp.js');
-    const runCmd = `echo "${input}" | node "${jsFilePath}"`;
+    const runCmd = `node "${jsFilePath}"`;
 
-    exec(compileCmd, (compileErr, _stdout, compileStderr) => {
+    exec(compileCmd, { cwd: tempDir }, (compileErr, _stdout, compileStderr) => {
       if (compileErr) {
-        return reject(new Error('TSコンパイルエラー:\n' + compileStderr));
+        return reject(new Error('TypeScriptコンパイルエラー:\n' + compileStderr));
       }
-      exec(runCmd, (runErr, runStdout, runStderr) => {
+      // 実行時に入力を渡す
+      const child = exec(runCmd, { cwd: tempDir }, (runErr, runStdout, runStderr) => {
         if (runErr) {
-          return reject(new Error('TS実行エラー:\n' + runStderr));
+          return reject(new Error('TypeScript実行エラー:\n' + runStderr));
         }
-        resolve(runStdout);
+        resolve(runStdout.trim());
       });
+
+      // 標準入力にデータを書き込む
+      child.stdin?.write(input);
+      child.stdin?.end();
     });
   });
 }

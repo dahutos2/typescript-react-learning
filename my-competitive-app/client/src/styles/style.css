@@ -1,79 +1,31 @@
 .container {
-  max-width: 1200px;
+  max-width: 800px;
   margin: 0 auto;
-  font-family: sans-serif;
   padding: 20px;
+  font-family: Arial, sans-serif;
 }
 
 .title {
-  font-size: 24px;
-  font-weight: bold;
+  text-align: center;
+  font-size: 2em;
   margin-bottom: 20px;
+}
+
+.btn {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background-color: #45a049;
 }
 
 .disqualified {
   color: red;
-  font-size: 20px;
-  text-align: center;
-  margin-top: 50px;
-}
-
-.timer {
-  font-weight: bold;
-  margin-bottom: 10px;
-}
-
-.btn {
-  display: inline-block;
-  margin: 0 5px;
-  padding: 5px 10px;
-  background: #0077aa;
-  color: #fff;
-  border-radius: 3px;
-  border: none;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.btn:hover {
-  background: #005f88;
-}
-
-.editor-container {
-  border: 1px solid #ccc;
-  margin-bottom: 10px;
-  background: #f8f8f8;
-}
-
-.editor-header {
-  background: #e0e0e0;
-  padding: 5px;
-  font-weight: bold;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.editor-body {
-  padding: 10px;
-}
-
-.code-textarea {
-  width: 100%;
-  min-height: 200px;
-  font-family: monospace;
-  font-size: 14px;
-  border: none;
-  outline: none;
-  resize: vertical;
-  background: #fff;
-}
-
-.output {
-  border: 1px solid #ccc;
-  background: #fff;
-  min-height: 100px;
-  margin: 10px 0;
-  white-space: pre-wrap;
-  padding: 10px;
+  font-size: 1.2em;
+  margin-bottom: 20px;
 }

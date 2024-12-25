@@ -74,7 +74,7 @@ npm init -y
   "scripts": {
     "server:build": "tsc -p ./server/tsconfig.json",
     "server:start": "node ./dist/server/server.js",
-    "server:dev": "tsc -p ./server/tsconfig.json -w",
+    "server:dev": "concurrently \"npm run server:build\" \"npm run server:start\"",
     "client:start": "cd client && npm start",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:start\""
   },
@@ -85,6 +85,7 @@ npm init -y
   "devDependencies": {
     "@types/express": "^4.17.14",
     "@types/node": "^18.15.0",
+    "nodemon": "^3.1.9",
     "typescript": "^4.9.0"
   }
 }
@@ -279,6 +280,62 @@ client/
 ```
 
 ---
+
+生成された `package.json` を**以下の内容**に書き換えてください。
+
+```jsonc
+{
+  "name": "my-competitive-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "server:build": "tsc -p ./server/tsconfig.json",
+    "server:start": "node ./dist/server/server.js",
+    "server:dev": "concurrently \"npm run server:build\" \"npm run server:start\"",
+    "client:start": "cd client && npm start",
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:start\""
+  },
+  "dependencies": {
+    "concurrently": "^7.6.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.14",
+    "@types/node": "^18.15.0",
+    "nodemon": "^3.1.9",
+    "typescript": "^4.9.0"
+  }
+}
+```
+
+生成された `tsconfig.json` を**以下の内容**に書き換えてください。
+
+```jsonc
+{
+  "compilerOptions": {
+    "target": "ES5",
+    "lib": [
+        "dom",
+        "dom.iterable",
+        "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": [
+      "src"
+  ]
+}
+```
 
 # 手順11: 不要ファイルを整理
 

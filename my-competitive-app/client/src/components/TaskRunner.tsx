@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CodeEditor from './CodeEditor';
+import './TaskRunner.css';
+import defaultCodes from '../data/defaultCodes.json';
 
 interface TestCase {
   input: string;
@@ -25,12 +27,20 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task }) => {
   const [userCode, setUserCode] = useState('');
   const [sampleIndex, setSampleIndex] = useState(0);
   const [output, setOutput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    // 言語が変更された際にデフォルトのコードを設定
+    setUserCode(defaultCodes[language]);
+  }, [language]);
 
   const handleCompileAndTest = async () => {
+    setIsSubmitting(true);
     setOutput('実行中...');
     const testCase = task.testCases[sampleIndex];
     if (!testCase) {
       setOutput('テストケースが選択されていません');
+      setIsSubmitting(false);
       return;
     }
     try {
@@ -49,9 +59,11 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task }) => {
     } catch (err: any) {
       setOutput(`通信エラー: ${err.message}`);
     }
+    setIsSubmitting(false);
   };
 
   const handleSubmit = async () => {
+    setIsSubmitting(true);
     setOutput('提出中...');
     let resultMessage = '';
     let allPassed = true;
@@ -69,8 +81,8 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task }) => {
           allPassed = false;
           resultMessage += `【NG】入力: ${tc.input}\nエラー:\n${data.output}\n\n`;
         } else {
-          const actual = String(data.output).trim();
-          const expected = String(tc.output).trim();
+          const actual = data.output.trim();
+          const expected = tc.output.trim();
           if (actual === expected) {
             resultMessage += `【OK】入力: ${tc.input}\n => ${actual}\n\n`;
           } else {
@@ -89,16 +101,36 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task }) => {
     } else {
       setOutput(`一部失敗:\n\n${resultMessage}`);
     }
+    setIsSubmitting(false);
   };
 
   return (
     <div>
       <h3>{task.title}</h3>
-      <p>{task.description}</p>
+      <div className='task-description'>
+        <pre>{task.description}</pre>
+      </div>
+
+      {/* テストケースの詳細表示 */}
+      <div className='test-case-details'>
+        {task.testCases.map((tc) => (
+          <div key={tc.input} className='individual-test-case'>
+            <div>
+              <strong>入力例{task.testCases.indexOf(tc) + 1}:</strong>
+              <pre>{tc.input}</pre>
+            </div>
+            <div>
+              <strong>期待される出力:</strong>
+              <pre>{tc.output}</pre>
+            </div>
+          </div>
+        ))}
+      </div>
 
       <div style={{ marginBottom: '10px' }}>
-        <label>使用言語: </label>
+        <label htmlFor="language-select">使用言語: </label>
         <select
+          id="language-select"
           value={language}
           onChange={(e) => setLanguage(e.target.value as LangOption)}
         >
@@ -109,29 +141,33 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task }) => {
 
       <CodeEditor code={userCode} onChange={setUserCode} language={language} />
 
+      {/* テストケース選択と動作確認 */}
       <div style={{ margin: '10px 0' }}>
-        <label>テストケース: </label>
+        <label htmlFor="testcase-select">テストケース: </label>
         <select
+          id="testcase-select"
           value={sampleIndex}
           onChange={(e) => setSampleIndex(Number(e.target.value))}
         >
-          {task.testCases.map((_, idx) => (
-            <option key={idx} value={idx}>
-              入力例{idx + 1}
+          {task.testCases.map((tc) => (
+            <option key={tc.input} value={task.testCases.indexOf(tc)}>
+              入力例{task.testCases.indexOf(tc) + 1}
             </option>
           ))}
         </select>
 
-        <button className='btn' onClick={handleCompileAndTest}>
-          提出前動作確認
+        <button className='btn' onClick={handleCompileAndTest} disabled={isSubmitting}>
+          {isSubmitting ? '実行中...' : '提出前動作確認'}
         </button>
       </div>
 
-      <button className='btn' onClick={handleSubmit}>
-        コードを提出する
+      <button className='btn' onClick={handleSubmit} disabled={isSubmitting}>
+        {isSubmitting ? '提出中...' : 'コードを提出する'}
       </button>
 
-      <div className='output'>{output}</div>
+      <div className='output'>
+        <pre>{output}</pre>
+      </div>
     </div>
   );
 };
