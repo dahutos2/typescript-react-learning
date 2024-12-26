@@ -1,0 +1,18 @@
+[
+    {
+        "id": 1,
+        "title": "練習問題: 文字列の反転",
+        "description": "入力された文字列を反転して出力してください。",
+        "timeLimitSec": 1800,
+        "testCases": [
+            {
+                "input": "hello",
+                "output": "olleh"
+            },
+            {
+                "input": "Thank you",
+                "output": "uoy knahT"
+            }
+        ]
+    }
+]

@@ -1,11 +1,11 @@
-.editor-container {
+.editorContainer {
     border: 1px solid #ccc;
     border-radius: 4px;
     overflow: hidden;
     margin-bottom: 20px;
 }
 
-.editor-header {
+.editorHeader {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -13,15 +13,15 @@
     padding: 10px;
 }
 
-.editor-title {
+.editorTitle {
     font-size: 1.2em;
     font-weight: bold;
 }
 
-.editor-controls .btn {
+.editorControls button {
     margin-left: 5px;
 }
 
-.editor-body {
+.editorBody {
     height: 400px;
 }

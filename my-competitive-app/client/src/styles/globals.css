@@ -1,0 +1,43 @@
+@import './variables.css';
+
+/* リセットCSS（必要に応じて追加） */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--background-color);
+    font-family: var(--font-family);
+    color: var(--text-color);
+}
+
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.title {
+    text-align: center;
+    font-size: 2em;
+    margin-bottom: 20px;
+    color: var(--text-color);
+}
+
+.disqualified {
+    color: var(--error-color);
+    font-size: 1.2em;
+    margin-bottom: 20px;
+}
+
+.timer {
+    text-align: center;
+    margin-bottom: 20px;
+}
