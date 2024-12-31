@@ -2,6 +2,7 @@ import express from 'express';
 import { runCsCode, runTsCode, initializeUser, disqualifyUser, getUserState } from './runCode';
 import cors from 'cors';
 import path from 'path';
+import axios from 'axios';
 
 const app = express();
 const PORT = 4000;
@@ -107,6 +108,36 @@ app.post('/api/switch-mode', (req, res) => {
   }
   res.json({ success: true, output: '本番モードに切り替えました。' });
 });
+
+// C#サーバーのURL
+const CSHARP_SERVER_URL = 'http://127.0.0.1:6000/api/csharp';
+
+// プロキシ関数
+const proxyRequest = async (req: express.Request, res: express.Response, endpoint: string) => {
+  try {
+    const url = `${CSHARP_SERVER_URL}/${endpoint}`;
+    const axiosResponse = await axios({
+      method: req.method,
+      url,
+      headers: { 'Content-Type': 'application/json' },
+      data: req.body
+    });
+
+    // axiosが status >= 400 なら例外を投げるため、ここに来る段階で成功ステータス
+    const data = axiosResponse.data;
+    res.json(data);
+
+  } catch (error: any) {
+    // axiosが4xx/5xxを検知した場合もここに入る
+    console.error(`エンドポイント ${endpoint} でエラーが発生しました:`, error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+app.post('/api/csharp-complete', (req, res) => proxyRequest(req, res, 'complete'));
+app.post('/api/csharp-diagnose', (req, res) => proxyRequest(req, res, 'diagnose'));
+app.post('/api/csharp-hover', (req, res) => proxyRequest(req, res, 'hover'));
+app.post('/api/csharp-signatureHelp', (req, res) => proxyRequest(req, res, 'signatureHelp'));
+app.post('/api/csharp-tabCompletion', (req, res) => proxyRequest(req, res, 'tabCompletion'));
 
 // 全てのルートをReactアプリにフォワード
 app.get('*', (req, res) => {

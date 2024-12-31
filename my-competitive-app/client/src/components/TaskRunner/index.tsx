@@ -20,8 +20,9 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
-        // 言語が変更された際にデフォルトのコードを設定
+        // 言語が変更された際にデフォルトのコードを設定し、Outputをクリア
         setUserCode(defaultCodes[language]);
+        setOutput('');
     }, [language]);
 
     const handleCompileAndTest = async () => {
@@ -104,7 +105,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
 
             <h3 className={styles.taskTitle}>{task.title}</h3>
             <div className={styles.taskDescription}>
-                <pre>{task.description}</pre>
+                <p>{task.description}</p>
             </div>
 
             {/* テストケースの詳細表示 */}
@@ -123,6 +124,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
                 ))}
             </div>
 
+            {/* 言語選択 */}
             <div className={styles.formGroup}>
                 <label htmlFor="language-select">使用言語: </label>
                 <select
@@ -136,15 +138,25 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
                 </select>
             </div>
 
-            <CodeEditor code={userCode} onChange={setUserCode} language={language} />
+            {/* コードエディタ */}
+            <CodeEditor
+                key={language}
+                userId={userId}
+                initialCode={userCode}
+                onCodeChange={setUserCode}
+                language={language}
+            />
 
-            {/* テストケース選択と動作確認 */}
+            {/* テストケース選択 */}
             <div className={styles.formGroup}>
                 <label htmlFor="testcase-select">テストケース: </label>
                 <select
                     id="testcase-select"
                     value={sampleIndex}
-                    onChange={(e) => setSampleIndex(Number(e.target.value))}
+                    onChange={(e) => {
+                        setSampleIndex(Number(e.target.value));
+                        setOutput('');
+                    }}
                     className={styles.select}
                 >
                     {task.testCases.map((tc, index) => (
@@ -155,17 +167,22 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
                 </select>
             </div>
 
+            {/* ボタン群 */}
             <div className={styles.buttonGroup}>
-                <Button onClick={handleCompileAndTest} disabled={isSubmitting} variant="primary">
+                <Button onClick={handleCompileAndTest} disabled={isSubmitting} variant="secondary" className={styles.button}>
                     {isSubmitting ? '実行中...' : '提出前動作確認'}
                 </Button>
-                <Button onClick={handleSubmit} disabled={isSubmitting} variant="primary">
+                <Button onClick={handleSubmit} disabled={isSubmitting} variant="primary" className={styles.button}>
                     {isSubmitting ? '提出中...' : 'コードを提出する'}
                 </Button>
             </div>
 
-            <div className={styles.output}>
-                <pre>{output}</pre>
+            {/* 出力エリア */}
+            <div className={styles.outputContainer}>
+                <h4 className={styles.outputTitle}>Output:</h4>
+                <div className={styles.output}>
+                    <pre>{output}</pre>
+                </div>
             </div>
         </div>
     );

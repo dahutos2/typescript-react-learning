@@ -23,6 +23,7 @@ function App() {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         if (userId && mode === 'task') {
+          setDisqualified(true);
           fetch('/api/disqualify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

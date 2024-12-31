@@ -1,7 +1,7 @@
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { UserState, TaskMode } from './types';
+import { UserState, TaskMode, CommandError } from './types';
 
 const tempDir = path.join(__dirname, '../../temp');
 
@@ -75,18 +75,36 @@ function validateUser(userId: string): void {
 }
 
 // 共通のコード実行ロジック
-function executeCommand(cmd: string, cwd: string, input?: string): Promise<string> {
+function executeCommand(cmd: string, args: string[], cwd: string, input?: string): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = exec(cmd, { cwd, encoding: 'utf8' }, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(stderr || error.message));
+    const child = spawn(cmd, args, { cwd, shell: true });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('error', (error) => {
+      reject(new CommandError(`コマンド実行エラー: ${error.message}`, stdout, stderr));
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new CommandError(`コマンドが非正常終了しました。終了コード: ${code}`, stdout, stderr));
       } else {
-        resolve(stdout.trim());
+        resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
       }
     });
+
     if (input) {
-      child.stdin?.write(input);
-      child.stdin?.end();
+      child.stdin.write(input);
+      child.stdin.end();
     }
   });
 }
@@ -97,27 +115,65 @@ export async function runCsCode(code: string, input: string, userId: string): Pr
 
   const userState = userStates[userId];
 
-  const csFilePath = path.join(tempDir, `Program_${userId}.cs`);
-  fs.writeFileSync(csFilePath, code, 'utf8');
+  // ユーザーごとのプロジェクトディレクトリを作成
+  const projectDir = path.join(tempDir, `Project_${userId}`);
 
-  const compileCmd = `csc "${csFilePath}"`;
-  const exePath = path.join(tempDir, `Program_${userId}.exe`);
-  const runCmd = `"${exePath}"`;
-
-  try {
-    await executeCommand(compileCmd, tempDir);
-  } catch (compileError) {
-    throw new Error(`C#コンパイルエラー:\n${compileError}`);
+  // プロジェクトディレクトリが存在しない場合は作成し、初期化
+  if (!fs.existsSync(projectDir)) {
+    try {
+      // dotnet new console -o Project_{userId}
+      await executeCommand('dotnet', ['new', 'console', '-o', `Project_${userId}`], tempDir);
+    } catch (initError: any) {
+      throw new Error(`.NET プロジェクトの初期化エラー:\n${initError.stderr || initError.message}`);
+    }
   }
 
+  // Program.cs のパス
+  const programCsPath = path.join(projectDir, 'Program.cs');
+
+  // ユーザーのC#コードで Program.cs を置き換え
+  fs.writeFileSync(programCsPath, code, 'utf8');
+
+  // プロジェクトのビルド
   try {
-    const stdout = await executeCommand(runCmd, tempDir, input);
-    if (userState.mode === 'task') {
-      writeResultToFile(userId, stdout);
+    const buildResult = await executeCommand('dotnet', ['build', '-c', 'Release'], projectDir);
+    if (buildResult.stderr) {
+      // 警告のみをサーバー側でログに記録
+      console.warn(`Build stderr for user ${userId}: ${buildResult.stderr}`);
     }
-    return stdout;
-  } catch (runError) {
-    throw new Error(`C#実行エラー:\n${runError}`);
+  } catch (buildError: any) {
+    if (buildError instanceof CommandError) {
+      console.error(`C#ビルドエラー for user ${userId}: ${buildError.stderr}`);
+      throw new Error(`C#ビルドエラーが発生しました。\n${buildError.stderr}`);
+    } else {
+      throw new Error(`C#ビルドエラーが発生しました。\n${buildError.message}`);
+    }
+  }
+
+  // プロジェクトの実行
+  try {
+    // プロジェクトファイルを正確に指定
+    const projectFilePath = path.join(projectDir, `Project_${userId}.csproj`);
+    const runCmd = 'dotnet';
+    const runArgs = ['run', '--project', `"${projectFilePath}"`, '-c', 'Release'];
+    const runResult = await executeCommand(runCmd, runArgs, projectDir, input);
+
+    if (runResult.stderr) {
+      // 実行時のエラーをサーバー側でログに記録
+      console.error(`Run stderr for user ${userId}: ${runResult.stderr}`);
+    }
+
+    if (userState.mode === 'task') {
+      writeResultToFile(userId, runResult.stdout);
+    }
+    return runResult.stdout;
+  } catch (runError: any) {
+    if (runError instanceof CommandError) {
+      console.error(`C#実行エラー for user ${userId}: ${runError.stderr}`);
+      throw new Error(`C#実行エラーが発生しました。\n${runError.stderr}`);
+    } else {
+      throw new Error(`C#実行エラーが発生しました。\n${runError.message}`);
+    }
   }
 }
 
@@ -126,27 +182,44 @@ export async function runTsCode(code: string, input: string, userId: string): Pr
   validateUser(userId);
 
   const userState = userStates[userId];
-
   const tsFilePath = path.join(tempDir, `temp_${userId}.ts`);
+  const jsFilePath = path.join(tempDir, `temp_${userId}.js`);
+
+  // TypeScript ファイルを保存
   fs.writeFileSync(tsFilePath, code, 'utf8');
 
-  const compileCmd = `tsc "${tsFilePath}" --outDir "${tempDir}"`;
-  const jsFilePath = path.join(tempDir, `temp_${userId}.js`);
-  const runCmd = `node "${jsFilePath}"`;
-
   try {
-    await executeCommand(compileCmd, tempDir);
-  } catch (compileError) {
-    throw new Error(`TypeScriptコンパイルエラー:\n${compileError}`);
+    // TypeScript のコンパイル
+    const compileResult = await executeCommand('tsc', [tsFilePath, '--outDir', tempDir], tempDir);
+    if (compileResult.stderr) {
+      console.warn(`TypeScript Build warnings for user ${userId}: ${compileResult.stderr}`);
+    }
+  } catch (compileError: any) {
+    if (compileError instanceof CommandError) {
+      console.error(`TypeScriptコンパイルエラー for user ${userId}: ${compileError.stderr}`);
+      throw new Error(`TypeScriptコンパイルエラーが発生しました。\n${compileError.stderr}`);
+    } else {
+      throw new Error(`TypeScriptコンパイルエラーが発生しました。\n${compileError.message}`);
+    }
   }
 
   try {
-    const stdout = await executeCommand(runCmd, tempDir, input);
-    if (userState.mode === 'task') {
-      writeResultToFile(userId, stdout);
+    // コンパイル済みの JavaScript ファイルを実行
+    const runResult = await executeCommand('node', [jsFilePath], tempDir, input);
+    if (runResult.stderr) {
+      console.error(`TypeScript Run stderr for user ${userId}: ${runResult.stderr}`);
     }
-    return stdout;
-  } catch (runError) {
-    throw new Error(`TypeScript実行エラー:\n${runError}`);
+
+    if (userState.mode === 'task') {
+      writeResultToFile(userId, runResult.stdout);
+    }
+    return runResult.stdout;
+  } catch (runError: any) {
+    if (runError instanceof CommandError) {
+      console.error(`TypeScript実行エラー for user ${userId}: ${runError.stderr}`);
+      throw new Error(`TypeScript実行エラーが発生しました。\n${runError.stderr}`);
+    } else {
+      throw new Error(`TypeScript実行エラーが発生しました。\n${runError.message}`);
+    }
   }
 }

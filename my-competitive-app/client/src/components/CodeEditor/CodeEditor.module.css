@@ -1,10 +1,14 @@
+/* エディタ全体のコンテナ */
 .editorContainer {
     border: 1px solid #ccc;
     border-radius: 4px;
     overflow: hidden;
     margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
 }
 
+/* ヘッダ部分 */
 .editorHeader {
     display: flex;
     justify-content: space-between;
@@ -13,15 +17,21 @@
     padding: 10px;
 }
 
+/* タイトル表示など */
 .editorTitle {
     font-size: 1.2em;
     font-weight: bold;
 }
 
-.editorControls button {
-    margin-left: 5px;
+/* ボタン類のラッパ */
+.editorControls {
+    display: flex;
+    gap: 8px;
 }
 
+/* ボディ部分、実際にエディタを表示する領域 */
 .editorBody {
+    flex: 1;
     height: 400px;
+    position: relative;
 }
