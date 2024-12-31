@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { TaskMode } from '../../utils/types';
 import styles from './Login.module.css';
 import Button from '../shared/Button';
+import { TaskMode } from '../../utils/types';
 
 interface LoginProps {
     onLogin: (userId: string, mode: TaskMode) => void;

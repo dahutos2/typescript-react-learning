@@ -1,6 +1,6 @@
 @import './variables.css';
 
-/* リセットCSS（必要に応じて追加） */
+/* リセットCSS */
 * {
     margin: 0;
     padding: 0;

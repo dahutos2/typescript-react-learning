@@ -1,17 +1,17 @@
-// App.tsx
-
 import React, { useEffect, useState } from 'react';
 import { TaskMode } from './utils/types';
 import tasksData from './data/tasks.json';
 import practiceTasksData from './data/practiceTasks.json';
 import Timer from './components/Timer';
 import TaskRunner from './components/TaskRunner';
+import CompletionScreen from './components/CompletionScreen';
 import Login from './components/Login';
 import styles from './App.module.css';
 import './styles/globals.css';
 
 function App() {
   const [disqualified, setDisqualified] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [mode, setMode] = useState<TaskMode | null>(null);
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
@@ -58,6 +58,7 @@ function App() {
       body: JSON.stringify({ userId, timeLimitSec }),
     }).then(() => {
       setMode('task');
+      setRemainingTime(timeLimitSec);
     });
   }
 
@@ -73,12 +74,15 @@ function App() {
     }).then(() => {
       setUserId(newUserId);
       setMode(selectedMode);
+      if (selectedMode === 'task' && timeLimitSec) {
+        setRemainingTime(timeLimitSec);
+      }
     });
   };
 
   // ログイン後にユーザー状態を取得
   useEffect(() => {
-    if (userId && mode === 'task') {
+    if (userId && mode) {
       fetch(`/api/user-state?userId=${encodeURIComponent(userId)}`)
         .then(response => response.json())
         .then(data => {
@@ -86,6 +90,8 @@ function App() {
             const { userState } = data;
             if (userState.disqualified) {
               setDisqualified(true);
+            } else if (userState.completed) {
+              setCompleted(true);
             } else if (userState.remainingTime !== undefined) {
               setRemainingTime(userState.remainingTime);
             }
@@ -100,9 +106,20 @@ function App() {
 
   if (disqualified) {
     return (
-      <div className='container'>
-        <div className='disqualified'>失格になりました...</div>
+      <div className={styles.container}>
+        <div className={styles.disqualified}>失格になりました...</div>
       </div>
+    );
+  }
+
+  if (completed) {
+    return (
+      <CompletionScreen
+        userId={userId}
+        mode={mode}
+        onInComplete={() => setCompleted(false)}
+        switchModeToTask={switchModeToTask}
+      />
     );
   }
 
@@ -110,18 +127,22 @@ function App() {
     <div className={styles.container}>
       <div className={styles.title}>ローカル競プロ学習アプリ</div>
 
-      <div className={styles.timer}>
-        <Timer
-          totalSec={remainingTime || currentTask.timeLimitSec}
-          onTimeUp={handleTimeUp}
-          mode={mode}
-        />
-      </div>
+      {mode === 'task' && (
+        <div className={styles.timer}>
+          <Timer
+            totalSec={remainingTime || currentTask.timeLimitSec}
+            onTimeUp={handleTimeUp}
+            mode={mode}
+          />
+        </div>
+      )}
+
       <TaskRunner
         task={currentTask}
         userId={userId}
         mode={mode}
         switchModeToTask={switchModeToTask}
+        onComplete={() => setCompleted(true)}
       />
     </div>
   );

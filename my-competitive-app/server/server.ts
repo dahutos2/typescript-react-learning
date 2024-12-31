@@ -1,5 +1,12 @@
 import express from 'express';
-import { runCsCode, runTsCode, initializeUser, disqualifyUser, getUserState } from './runCode';
+import {
+  runCsCode,
+  runTsCode,
+  initializeUser,
+  disqualifyUser,
+  getUserState,
+  getResult,
+} from './runCode';
 import cors from 'cors';
 import path from 'path';
 import axios from 'axios';
@@ -43,8 +50,8 @@ app.get('/api/user-state', (req, res) => {
     const elapsed = Math.floor((Date.now() - userState.taskStartTime) / 1000);
     remainingTime = userState.timeLimitSec - elapsed;
 
-    if (remainingTime <= 0) {
-      userState.disqualified = true;
+    if (remainingTime <= 0 && !userState.disqualified) {
+      disqualifyUser(userId);
       remainingTime = 0;
     }
   }
@@ -62,15 +69,30 @@ app.post('/api/disqualify', (req, res) => {
   res.json({ success: true });
 });
 
-// C#コード実行エンドポイント
-app.post('/api/run-cs', async (req, res) => {
-  const { code, input, userId } = req.body;
-  if (!userId) {
+// 結果取得エンドポイント
+app.get('/api/get-result', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId || typeof userId !== 'string') {
     return res.status(400).json({ success: false, output: 'userIdが必要です。' });
   }
+
   try {
-    const output = await runCsCode(code, input, userId);
-    res.json({ success: true, output });
+    const result = await getResult(userId);
+    res.json({ success: true, output: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, output: error.message });
+  }
+});
+
+// C#コード実行エンドポイント（isSubmitパラメータを受け取る）
+app.post('/api/run-cs', async (req, res) => {
+  const { code, testCases, userId, isSubmit } = req.body;
+  if (!userId || !testCases || !Array.isArray(testCases)) {
+    return res.status(400).json({ success: false, output: 'userIdと複数のtestCasesが必要です。' });
+  }
+  try {
+    const testCaseResults = await runCsCode(code, testCases, userId, isSubmit);
+    res.json({ success: true, output: testCaseResults });
   } catch (error: any) {
     res.json({ success: false, output: error.message });
   }
@@ -78,13 +100,13 @@ app.post('/api/run-cs', async (req, res) => {
 
 // TypeScriptコード実行エンドポイント
 app.post('/api/run-ts', async (req, res) => {
-  const { code, input, userId } = req.body;
-  if (!userId) {
-    return res.status(400).json({ success: false, output: 'userIdが必要です。' });
+  const { code, testCases, userId, isSubmit } = req.body;
+  if (!userId || !testCases || !Array.isArray(testCases)) {
+    return res.status(400).json({ success: false, output: 'userIdと複数のtestCasesが必要です。' });
   }
   try {
-    const output = await runTsCode(code, input, userId);
-    res.json({ success: true, output });
+    const testCaseResults = await runTsCode(code, testCases, userId, isSubmit);
+    res.json({ success: true, output: testCaseResults });
   } catch (error: any) {
     res.json({ success: false, output: error.message });
   }

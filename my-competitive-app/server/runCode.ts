@@ -1,13 +1,17 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { UserState, TaskMode, CommandError } from './types';
+import { UserState, TaskMode, CommandError, TestCaseResult, TestCase } from './types';
 
 const tempDir = path.join(__dirname, '../../temp');
+const resultDir = path.join(__dirname, '../../results');
 
-// tempDirが存在しない場合は作成
+// tempDirとresultDirが存在しない場合は作成
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
+}
+if (!fs.existsSync(resultDir)) {
+  fs.mkdirSync(resultDir, { recursive: true });
 }
 
 const userStates: { [userId: string]: UserState } = {};
@@ -17,20 +21,22 @@ export function initializeUser(userId: string, mode: TaskMode, timeLimitSec?: nu
   if (!userStates[userId]) {
     userStates[userId] = {
       disqualified: false,
+      completed: false,
       mode,
       taskStartTime: mode === 'task' ? Date.now() : undefined,
       timeLimitSec: mode === 'task' && timeLimitSec ? timeLimitSec : undefined,
     };
+  } else {
+    userStates[userId].mode = mode;
   }
 }
 
 // ユーザーの失格状態を更新
 export function disqualifyUser(userId: string): void {
-  if (userStates[userId]) {
-    userStates[userId].disqualified = true;
-    if (userStates[userId].mode === 'task') {
-      writeResultToFile(userId, '失格');
-    }
+  const userState = userStates[userId];
+  if (userState && userState.mode === 'task') {
+    userState.disqualified = true;
+    writeResultToFile(userId, '失格');
   }
 }
 
@@ -39,16 +45,29 @@ export function getUserState(userId: string): UserState | null {
   return userStates[userId] || null;
 }
 
+// ユーザーの完了状態を更新
+function completeUser(userId: string): void {
+  const userState = userStates[userId];
+  if (userState && userState.mode === 'task') {
+    userState.completed = true;
+    writeResultToFile(userId, '提出完了');
+  }
+}
+
 // ユーザー結果をファイルに書き込む関数
 function writeResultToFile(userId: string, result: string): void {
-  const resultDir = path.join(__dirname, '../../results');
-  if (!fs.existsSync(resultDir)) {
-    fs.mkdirSync(resultDir, { recursive: true });
-  }
   const filePath = path.join(resultDir, `${userId}.txt`);
-  const content = `結果: ${result}\n日時: ${new Date().toISOString()}\n`;
+  const timestamp = new Date().toISOString();
+  const content = `結果: ${result}\n日時: ${timestamp}\n`;
   fs.appendFileSync(filePath, content, 'utf8');
 }
+
+// テストケースごとの結果を保存する関数
+function saveTestCaseResults(userId: string, testCaseResults: TestCaseResult[]): void {
+  const filePath = path.join(resultDir, `${userId}_test_results.json`);
+  fs.writeFileSync(filePath, JSON.stringify(testCaseResults, null, 2), 'utf8');
+}
+
 
 // ユーザーの検証と残り時間の更新
 function validateUser(userId: string): void {
@@ -67,15 +86,34 @@ function validateUser(userId: string): void {
       const elapsed = Math.floor((Date.now() - userState.taskStartTime) / 1000);
       const timeLeft = userState.timeLimitSec - elapsed;
       if (timeLeft <= 0) {
-        userState.disqualified = true;
+        disqualifyUser(userId);
         throw new Error('時間切れで失格しました。');
       }
     }
   }
 }
 
+function sanitizeOutput(output: string): string {
+  // ファイルパスのマッチ
+  const pathRegex = /(?:[A-Za-z]:\\|\/)?(?:[\w.-]+[\\/])*[\w.-]+\.\w+/g;
+
+  // ソースコードの行番号のマッチ
+  const lineNumberRegex = /in .*?:line \d+/g;
+
+  // パスと行番号をそれぞれ置換
+  let sanitizedOutput = output.replace(pathRegex, '[PATH]');
+  sanitizedOutput = sanitizedOutput.replace(lineNumberRegex, '[LINE INFO]');
+
+  return sanitizedOutput;
+}
+
 // 共通のコード実行ロジック
-function executeCommand(cmd: string, args: string[], cwd: string, input?: string): Promise<{ stdout: string; stderr: string }> {
+function executeCommand(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  input?: string
+): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, shell: true });
 
@@ -91,14 +129,32 @@ function executeCommand(cmd: string, args: string[], cwd: string, input?: string
     });
 
     child.on('error', (error) => {
-      reject(new CommandError(`コマンド実行エラー: ${error.message}`, stdout, stderr));
+      reject(
+        new CommandError(
+          `コマンド実行エラー: ${sanitizeOutput(error.message)}`,
+          sanitizeOutput(stdout),
+          sanitizeOutput(stderr)
+        )
+      );
     });
 
     child.on('close', (code) => {
+      const sanitizedStdout = sanitizeOutput(stdout);
+      const sanitizedStderr = sanitizeOutput(stderr);
+
       if (code !== 0) {
-        reject(new CommandError(`コマンドが非正常終了しました。終了コード: ${code}`, stdout, stderr));
+        reject(
+          new CommandError(
+            `コマンドが非正常終了しました。終了コード: ${code}`,
+            sanitizedStdout,
+            sanitizedStderr
+          )
+        );
       } else {
-        resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+        resolve({
+          stdout: sanitizedStdout.trim(),
+          stderr: sanitizedStderr.trim(),
+        });
       }
     });
 
@@ -109,87 +165,131 @@ function executeCommand(cmd: string, args: string[], cwd: string, input?: string
   });
 }
 
-// C#コードのコンパイルと実行
-export async function runCsCode(code: string, input: string, userId: string): Promise<string> {
-  validateUser(userId);
-
-  const userState = userStates[userId];
-
-  // ユーザーごとのプロジェクトディレクトリを作成
-  const projectDir = path.join(tempDir, `Project_${userId}`);
-
-  // プロジェクトディレクトリが存在しない場合は作成し、初期化
-  if (!fs.existsSync(projectDir)) {
-    try {
-      // dotnet new console -o Project_{userId}
-      await executeCommand('dotnet', ['new', 'console', '-o', `Project_${userId}`], tempDir);
-    } catch (initError: any) {
-      throw new Error(`.NET プロジェクトの初期化エラー:\n${initError.stderr || initError.message}`);
-    }
+// プロジェクトの初期化
+async function initializeCsProject(projectDir: string, userId: string): Promise<void> {
+  try {
+    await executeCommand('dotnet', ['new', 'console', '-o', `Project_${userId}`], path.dirname(projectDir));
+  } catch (error: any) {
+    throw new Error(`.NET プロジェクトの初期化エラー:\n${error.stderr || error.message}`);
   }
+}
 
-  // Program.cs のパス
-  const programCsPath = path.join(projectDir, 'Program.cs');
-
-  // ユーザーのC#コードで Program.cs を置き換え
-  fs.writeFileSync(programCsPath, code, 'utf8');
-
-  // プロジェクトのビルド
+// C#コードのビルド
+async function buildCsProject(projectDir: string, userId: string): Promise<void> {
   try {
     const buildResult = await executeCommand('dotnet', ['build', '-c', 'Release'], projectDir);
     if (buildResult.stderr) {
       // 警告のみをサーバー側でログに記録
       console.warn(`Build stderr for user ${userId}: ${buildResult.stderr}`);
     }
-  } catch (buildError: any) {
-    if (buildError instanceof CommandError) {
-      console.error(`C#ビルドエラー for user ${userId}: ${buildError.stderr}`);
-      throw new Error(`C#ビルドエラーが発生しました。\n${buildError.stderr}`);
+  } catch (error: any) {
+    if (error instanceof CommandError) {
+      console.error(`C#ビルドエラー for user ${userId}: ${error.stderr}`);
+      throw new Error(`C#ビルドエラーが発生しました。\n${error.stderr}`);
     } else {
-      throw new Error(`C#ビルドエラーが発生しました。\n${buildError.message}`);
-    }
-  }
-
-  // プロジェクトの実行
-  try {
-    // プロジェクトファイルを正確に指定
-    const projectFilePath = path.join(projectDir, `Project_${userId}.csproj`);
-    const runCmd = 'dotnet';
-    const runArgs = ['run', '--project', `"${projectFilePath}"`, '-c', 'Release'];
-    const runResult = await executeCommand(runCmd, runArgs, projectDir, input);
-
-    if (runResult.stderr) {
-      // 実行時のエラーをサーバー側でログに記録
-      console.error(`Run stderr for user ${userId}: ${runResult.stderr}`);
-    }
-
-    if (userState.mode === 'task') {
-      writeResultToFile(userId, runResult.stdout);
-    }
-    return runResult.stdout;
-  } catch (runError: any) {
-    if (runError instanceof CommandError) {
-      console.error(`C#実行エラー for user ${userId}: ${runError.stderr}`);
-      throw new Error(`C#実行エラーが発生しました。\n${runError.stderr}`);
-    } else {
-      throw new Error(`C#実行エラーが発生しました。\n${runError.message}`);
+      throw new Error(`C#ビルドエラーが発生しました。\n${error.message}`);
     }
   }
 }
 
+// C#プロジェクトの実行
+async function runCsProject(projectDir: string, userId: string, input: string): Promise<string> {
+  const projectFilePath = path.join(projectDir, `Project_${userId}.csproj`);
+  const runArgs = ['run', '--project', projectFilePath, '-c', 'Release'];
+  try {
+    const runResult = await executeCommand('dotnet', runArgs, projectDir, input);
+    if (runResult.stderr) {
+      console.error(`Run stderr for user ${userId}: ${runResult.stderr}`);
+    }
+    return runResult.stdout;
+  } catch (error: any) {
+    if (error instanceof CommandError) {
+      console.error(`C#実行エラー for user ${userId}: ${error.stderr}`);
+      throw new Error(`C#実行エラーが発生しました。\n${error.stderr}`);
+    } else {
+      throw new Error(`C#実行エラーが発生しました。\n${error.message}`);
+    }
+  }
+}
+
+// C#コードのコンパイルと実行
+export async function runCsCode(
+  code: string,
+  testCases: TestCase[],
+  userId: string,
+  isSubmit: boolean = false
+): Promise<TestCaseResult[]> {
+  validateUser(userId);
+
+  const userState = userStates[userId];
+  const projectDir = path.join(tempDir, `Project_${userId}`);
+
+  // プロジェクトディレクトリの存在確認と初期化
+  if (!fs.existsSync(projectDir)) {
+    await initializeCsProject(projectDir, userId);
+  }
+
+  // Program.cs の書き換え
+  const programCsPath = path.join(projectDir, 'Program.cs');
+  fs.writeFileSync(programCsPath, code, 'utf8');
+
+  // ビルド
+  await buildCsProject(projectDir, userId);
+
+  // 実行
+  const testCaseResults: TestCaseResult[] = [];
+  for (const tc of testCases) {
+    try {
+      const output = await runCsProject(projectDir, userId, tc.input);
+      const success = output.trim() === tc.expectedOutput.trim();
+      testCaseResults.push({
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        actualOutput: output,
+        status: success ? 'success' : 'failure',
+        isPublic: tc.isPublic
+      });
+    } catch (error: any) {
+      testCaseResults.push({
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        actualOutput: error.message,
+        status: 'error',
+        isPublic: tc.isPublic
+      });
+    }
+  }
+
+  if (isSubmit && userState.mode === 'task') {
+    completeUser(userId);
+  }
+  if (isSubmit) {
+    // テストケース結果を保存
+    saveTestCaseResults(userId, testCaseResults);
+    return [];
+  }
+
+  return testCaseResults;
+}
+
 // TypeScriptコードのコンパイルと実行
-export async function runTsCode(code: string, input: string, userId: string): Promise<string> {
+export async function runTsCode(
+  code: string,
+  testCases: TestCase[],
+  userId: string,
+  isSubmit: boolean = false
+): Promise<TestCaseResult[]> {
   validateUser(userId);
 
   const userState = userStates[userId];
   const tsFilePath = path.join(tempDir, `temp_${userId}.ts`);
   const jsFilePath = path.join(tempDir, `temp_${userId}.js`);
 
-  // TypeScript ファイルを保存
+  // TypeScript ファイルの保存
   fs.writeFileSync(tsFilePath, code, 'utf8');
 
+  // コンパイル
   try {
-    // TypeScript のコンパイル
     const compileResult = await executeCommand('tsc', [tsFilePath, '--outDir', tempDir], tempDir);
     if (compileResult.stderr) {
       console.warn(`TypeScript Build warnings for user ${userId}: ${compileResult.stderr}`);
@@ -203,23 +303,51 @@ export async function runTsCode(code: string, input: string, userId: string): Pr
     }
   }
 
-  try {
-    // コンパイル済みの JavaScript ファイルを実行
-    const runResult = await executeCommand('node', [jsFilePath], tempDir, input);
-    if (runResult.stderr) {
-      console.error(`TypeScript Run stderr for user ${userId}: ${runResult.stderr}`);
-    }
-
-    if (userState.mode === 'task') {
-      writeResultToFile(userId, runResult.stdout);
-    }
-    return runResult.stdout;
-  } catch (runError: any) {
-    if (runError instanceof CommandError) {
-      console.error(`TypeScript実行エラー for user ${userId}: ${runError.stderr}`);
-      throw new Error(`TypeScript実行エラーが発生しました。\n${runError.stderr}`);
-    } else {
-      throw new Error(`TypeScript実行エラーが発生しました。\n${runError.message}`);
+  // 実行
+  const testCaseResults: TestCaseResult[] = [];
+  for (const tc of testCases) {
+    try {
+      const runResult = await executeCommand('node', [jsFilePath], tempDir, tc.input);
+      const output = runResult.stdout;
+      const success = output.trim() === tc.expectedOutput.trim();
+      testCaseResults.push({
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        actualOutput: output,
+        status: success ? 'success' : 'failure',
+        isPublic: tc.isPublic
+      });
+    } catch (runError: any) {
+      testCaseResults.push({
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        actualOutput: runError.message,
+        status: 'error',
+        isPublic: tc.isPublic
+      });
     }
   }
+
+  if (isSubmit && userState.mode === 'task') {
+    completeUser(userId);
+  }
+  if (isSubmit) {
+    // テストケース結果を保存
+    saveTestCaseResults(userId, testCaseResults);
+    return [];
+  }
+
+  return testCaseResults;
+}
+
+// 提出結果の取得
+export async function getResult(userId: string): Promise<TestCaseResult[]> {
+  const testResultPath = path.join(resultDir, `${userId}_test_results.json`);
+  let testCaseResults: TestCaseResult[] = [];
+  if (fs.existsSync(testResultPath)) {
+    const testContent = fs.readFileSync(testResultPath, 'utf8');
+    testCaseResults = JSON.parse(testContent);
+  }
+
+  return testCaseResults;
 }

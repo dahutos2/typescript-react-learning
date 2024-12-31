@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CodeEditor from '../CodeEditor';
-import { LangOption, Task, TaskMode } from '../../utils/types';
+import PreSubmitConfirmation from '../PreSubmitConfirmation';
+import { Task, TaskMode, LangOption, TestCaseResult, OutputStatus } from '../../utils/types';
 import defaultCodes from '../../data/defaultCodes.json';
 import styles from './TaskRunner.module.css';
 import Button from '../shared/Button';
@@ -10,95 +11,145 @@ interface TaskRunnerProps {
     userId: string;
     mode: TaskMode;
     switchModeToTask: () => void;
+    onComplete: () => void;
 }
 
-const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeToTask }) => {
+const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeToTask, onComplete }) => {
     const [language, setLanguage] = useState<LangOption>('csharp');
     const [userCode, setUserCode] = useState('');
     const [sampleIndex, setSampleIndex] = useState(0);
-    const [output, setOutput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // 提出前動作確認用の状態
+    const [preSubmitStatus, setPreSubmitStatus] = useState<OutputStatus | null>(null);
+    const [preSubmitInput, setPreSubmitInput] = useState('');
+    const [preSubmitExpectedOutput, setPreSubmitExpectedOutput] = useState('');
+    const [preSubmitActualOutput, setPreSubmitActualOutput] = useState('');
+    const [preSubmitErrorMessages, setPreSubmitErrorMessages] = useState('');
+
     useEffect(() => {
-        // 言語が変更された際にデフォルトのコードを設定し、Outputをクリア
+        // 言語が変更された際にデフォルトのコードを設定し、プレテスト結果をクリア
         setUserCode(defaultCodes[language]);
-        setOutput('');
+        setPreSubmitStatus(null);
     }, [language]);
 
-    const handleCompileAndTest = async () => {
-        setIsSubmitting(true);
-        setOutput('実行中...');
-        const testCase = task.testCases[sampleIndex];
-        if (!testCase) {
-            setOutput('テストケースが選択されていません');
-            setIsSubmitting(false);
-            return;
+    // 提出前の単一テストケース実行
+    const handlePreSubmit = async () => {
+        const selectedTestCase = task.testCases[sampleIndex];
+        if (!selectedTestCase) {
+            setPreSubmitStatus('error');
+            setPreSubmitActualOutput('');
+            setPreSubmitErrorMessages('テストケースが選択されていません');
         }
         try {
+            const testCases = [{
+                input: selectedTestCase.input,
+                expectedOutput: selectedTestCase.output,
+                isPublic: selectedTestCase.isPublic
+            }];
+
             const url = language === 'csharp' ? '/api/run-cs' : '/api/run-ts';
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: userCode, input: testCase.input, userId: userId })
+                body: JSON.stringify({
+                    code: userCode,
+                    testCases: testCases,
+                    userId: userId,
+                    isSubmit: false
+                })
             });
             const data = await res.json();
+            setPreSubmitInput(selectedTestCase.input);
+            setPreSubmitExpectedOutput(selectedTestCase.output);
             if (!data.success) {
-                setOutput(`エラー:\n${data.output}`);
+                // エラー発生時
+                setPreSubmitStatus('error');
+                setPreSubmitActualOutput('');
+                setPreSubmitErrorMessages(data.output);
             } else {
-                setOutput(data.output);
+                const testCaseResults: TestCaseResult[] = data.output;
+                if (testCaseResults.length !== 1) {
+                    setPreSubmitStatus('error');
+                    setPreSubmitActualOutput('');
+                    setPreSubmitErrorMessages('データが不正です');
+                } else {
+                    const testCaseResult = testCaseResults[0];
+                    setPreSubmitStatus(testCaseResult.status);
+                    if (testCaseResult.status === 'error') {
+                        setPreSubmitActualOutput('');
+                        setPreSubmitErrorMessages(testCaseResult.actualOutput);
+                    } else {
+                        setPreSubmitActualOutput(testCaseResult.actualOutput);
+                    }
+                }
             }
-        } catch (err: any) {
-            setOutput(`通信エラー: ${err.message}`);
+        } catch (error: any) {
+            // 通信エラー
+            setPreSubmitStatus('error');
+            setPreSubmitInput(selectedTestCase.input);
+            setPreSubmitExpectedOutput(selectedTestCase.output);
+            setPreSubmitActualOutput('');
+            setPreSubmitErrorMessages(error.message);
         }
+    };
+
+    // 提出時のテストケース実行
+    const executeAllTestCases = async (): Promise<void> => {
+        try {
+            const testCases = task.testCases.map(tc => {
+                return {
+                    input: tc.input,
+                    expectedOutput: tc.output,
+                    isPublic: tc.isPublic
+                };
+            });
+            const url = language === 'csharp' ? '/api/run-cs' : '/api/run-ts';
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: userCode,
+                    testCases: testCases,
+                    userId: userId,
+                    isSubmit: true
+                })
+            });
+        } catch (error: any) {
+            // 例外時は何もしない
+        }
+    };
+
+    const handleRunCode = async (isSubmit: boolean) => {
+        setIsSubmitting(true);
+
+        if (isSubmit) {
+            await executeAllTestCases();
+            onComplete();
+        } else {
+            await handlePreSubmit();
+        }
+
         setIsSubmitting(false);
     };
 
-    const handleSubmit = async () => {
-        setIsSubmitting(true);
-        setOutput('提出中...');
-        let resultMessage = '';
-        let allPassed = true;
+    const toTask = () => {
+        setPreSubmitStatus(null);
+        switchModeToTask();
+    }
 
-        for (const tc of task.testCases) {
-            try {
-                const url = language === 'csharp' ? '/api/run-cs' : '/api/run-ts';
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: userCode, input: tc.input, userId: userId })
-                });
-                const data = await res.json();
-                if (!data.success) {
-                    allPassed = false;
-                    resultMessage += `【NG】入力: ${tc.input}\nエラー:\n${data.output}\n\n`;
-                } else {
-                    const actual = data.output.trim();
-                    const expected = tc.output.trim();
-                    if (actual === expected) {
-                        resultMessage += `【OK】入力: ${tc.input}\n => ${actual}\n\n`;
-                    } else {
-                        allPassed = false;
-                        resultMessage += `【NG】入力: ${tc.input}\n 期待値: ${expected}, 実際: ${actual}\n\n`;
-                    }
-                }
-            } catch (error: any) {
-                allPassed = false;
-                resultMessage += `【ERR】${error.message}\n\n`;
-            }
-        }
+    const handleTestRun = () => {
+        handleRunCode(false);
+    };
 
-        if (allPassed) {
-            setOutput(`全テストケース合格！\n\n${resultMessage}`);
-        } else {
-            setOutput(`一部失敗:\n\n${resultMessage}`);
-        }
-        setIsSubmitting(false);
+    const handleSubmit = () => {
+        handleRunCode(true);
     };
 
     return (
         <div className={styles.container}>
             {mode === 'practice' && (
-                <Button onClick={switchModeToTask} variant="secondary" className={styles.switchButton}>
+                <Button onClick={toTask} variant="secondary" className={styles.switchButton}>
                     本番モードに切り替える
                 </Button>
             )}
@@ -111,7 +162,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
             {/* テストケースの詳細表示 */}
             <div className={styles.testCaseDetails}>
                 {task.testCases.map((tc, index) => (
-                    <div key={tc.input} className={styles.individualTestCase}>
+                    <div key={`${tc.input}-${index}`} className={styles.individualTestCase}>
                         <div>
                             <strong className={styles.testCaseTitle}>入力例{index + 1}:</strong>
                             <pre className={styles.testCasePre}>{tc.input}</pre>
@@ -147,43 +198,56 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
                 language={language}
             />
 
-            {/* テストケース選択 */}
-            <div className={styles.formGroup}>
-                <label htmlFor="testcase-select">テストケース: </label>
-                <select
-                    id="testcase-select"
-                    value={sampleIndex}
-                    onChange={(e) => {
-                        setSampleIndex(Number(e.target.value));
-                        setOutput('');
-                    }}
-                    className={styles.select}
-                >
-                    {task.testCases.map((tc, index) => (
-                        <option key={tc.input} value={index}>
-                            入力例{index + 1}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            {/* ボタン群 */}
-            <div className={styles.buttonGroup}>
-                <Button onClick={handleCompileAndTest} disabled={isSubmitting} variant="secondary" className={styles.button}>
-                    {isSubmitting ? '実行中...' : '提出前動作確認'}
-                </Button>
-                <Button onClick={handleSubmit} disabled={isSubmitting} variant="primary" className={styles.button}>
-                    {isSubmitting ? '提出中...' : 'コードを提出する'}
-                </Button>
-            </div>
-
-            {/* 出力エリア */}
-            <div className={styles.outputContainer}>
-                <h4 className={styles.outputTitle}>Output:</h4>
-                <div className={styles.output}>
-                    <pre>{output}</pre>
+            {/* 提出前動作確認エリア */}
+            <div className={styles.compileTestArea}>
+                <div className={styles.inputSelect}>
+                    <label htmlFor="sample_input_no">動作確認で使うテストケースを選択</label>
+                    <select
+                        name="sample_input_no"
+                        id="sample_input_no"
+                        className={`${styles.select}`}
+                        value={sampleIndex ?? ''}
+                        onChange={(e) => {
+                            setSampleIndex(Number(e.target.value));
+                        }}
+                    >
+                        {task.testCases.map((tc, index) => (
+                            <option key={`${tc.input}-${index}`} value={index}>
+                                入力例{index + 1}
+                            </option>
+                        ))}
+                    </select>
                 </div>
+                <Button
+                    onClick={handleTestRun}
+                    disabled={isSubmitting || sampleIndex === null}
+                    variant="secondary"
+                    className={styles.submitButton}
+                >
+                    {isSubmitting ? '確認中...' : '提出前動作確認'}
+                </Button>
             </div>
+
+            {/* 提出前動作確認の結果表示 */}
+            {preSubmitStatus && (
+                <PreSubmitConfirmation
+                    status={preSubmitStatus}
+                    input={preSubmitInput}
+                    expectedOutput={preSubmitExpectedOutput}
+                    actualOutput={preSubmitActualOutput}
+                    errorMessages={preSubmitErrorMessages}
+                />
+            )}
+
+            {/* 提出ボタンを中央に配置 */}
+            <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                variant="primary"
+                className={styles.submitButton}
+            >
+                {isSubmitting ? '提出中...' : 'コードを提出する'}
+            </Button>
         </div>
     );
 };

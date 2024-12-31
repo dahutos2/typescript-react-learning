@@ -7,11 +7,13 @@
         "testCases": [
             {
                 "input": "hello",
-                "output": "olleh"
+                "output": "olleh",
+                "isPublic": true
             },
             {
                 "input": "Thank you",
-                "output": "uoy knahT"
+                "output": "uoy knahT",
+                "isPublic": true
             }
         ]
     }
