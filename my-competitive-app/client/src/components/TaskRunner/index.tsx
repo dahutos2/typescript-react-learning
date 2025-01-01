@@ -146,6 +146,39 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
         handleRunCode(true);
     };
 
+    const renderWithCodeBlocks = (lines: string[]) => {
+        const elements: JSX.Element[] = [];
+        let codeBlock: string[] = [];
+        let insideCodeBlock = false;
+        lines.forEach((line, index) => {
+            if (line === '<code>') {
+                insideCodeBlock = true;
+                codeBlock = [];
+            } else if (line === '</code>') {
+                insideCodeBlock = false;
+                elements.push(
+                    <div key={`${line}-${index}`} className={styles.codeBlock}>
+                        {codeBlock.map((codeLine, codeIndex) => (
+                            <pre key={`${codeLine}-${codeIndex}`}>
+                                {codeLine}
+                            </pre>
+                        ))}
+                    </div>
+                );
+            } else if (insideCodeBlock) {
+                codeBlock.push(line);
+            } else {
+                elements.push(
+                    <p key={`${line}-${index}`} className={styles.line}>
+                        {line}
+                    </p>
+                );
+            }
+        });
+
+        return elements;
+    };
+
     return (
         <div className={styles.container}>
             {mode === 'practice' && (
@@ -155,9 +188,36 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
             )}
 
             <h3 className={styles.taskTitle}>{task.title}</h3>
-            <div className={styles.taskDescription}>
-                <p>{task.description}</p>
-            </div>
+
+            {/* 説明 */}
+            {task.description && task.description.length > 0 && (
+                <div className={styles.section}>
+                    <div className={styles.sectionContent}>
+                        {renderWithCodeBlocks(task.description)}
+                    </div>
+                </div>
+            )}
+
+
+            {/* 入力される値 */}
+            {task.inputDescription && task.inputDescription.length > 0 && (
+                <div className={styles.section}>
+                    <h4 className={styles.sectionTitle}>入力される値</h4>
+                    <div className={styles.sectionContent}>
+                        {renderWithCodeBlocks(task.inputDescription)}
+                    </div>
+                </div>
+            )}
+
+            {/* 期待する出力 */}
+            {task.outputDescription && task.outputDescription.length > 0 && (
+                <div className={styles.section}>
+                    <h4 className={styles.sectionTitle}>期待する出力</h4>
+                    <div className={styles.sectionContent}>
+                        {renderWithCodeBlocks(task.outputDescription)}
+                    </div>
+                </div>
+            )}
 
             {/* テストケースの詳細表示 */}
             <div className={styles.testCaseDetails}>

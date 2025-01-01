@@ -11,7 +11,9 @@ export interface TestCase {
 export interface Task {
     id: number;
     title: string;
-    description: string;
+    description: string[];
+    inputDescription: string[];
+    outputDescription: string[];
     timeLimitSec: number;
     testCases: TestCase[];
 }

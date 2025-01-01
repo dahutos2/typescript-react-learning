@@ -125,8 +125,6 @@ function App() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.title}>ローカル競プロ学習アプリ</div>
-
       {mode === 'task' && (
         <div className={styles.timer}>
           <Timer
