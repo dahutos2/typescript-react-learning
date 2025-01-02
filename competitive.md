@@ -126,7 +126,7 @@ cd my-competitive-app
 
 ---
 
-# 手順2: package.json (ルート) を作成
+# 手順2: `package.json (ルート)` を作成
 
 ```bash
 # ルート直下でnpm init
@@ -167,7 +167,7 @@ npm init -y
 
 ---
 
-# 手順3: ルートの tsconfig.json を作る (空ファイルでもOK)
+# 手順3: `tsconfig.json (ルート)` を作る (空ファイルでもOK)
 
 ```bash
 # ルートに tsconfig.json を作る
@@ -797,7 +797,7 @@ export class CommandError extends Error {
 
 ---
 
-# 手順6: server フォルダ作成完了。戻る
+# 手順6: `server` フォルダ作成完了。戻る
 
 ```bash
 cd ..
@@ -812,7 +812,7 @@ cd ..
 
 ---
 
-# 手順7: temp フォルダを作る
+# 手順7: `temp` フォルダを作る
 
 ```bash
 mkdir temp
@@ -820,7 +820,7 @@ mkdir temp
 
 ---
 
-# 手順8: results フォルダを作る
+# 手順8: `results` フォルダを作る
 
 ```bash
 mkdir results
@@ -828,7 +828,7 @@ mkdir results
 
 ---
 
-# 手順9: client フォルダを作り、Reactをセットアップ
+# 手順9: `client` フォルダを作り、Reactをセットアップ
 
 ```bash
 npx create-react-app client --template typescript
@@ -3344,7 +3344,7 @@ dotnet new webapi -n CodeAnalysisServer
 
 ---
 
-# 手順24: `CodeAnalysisServer.csproj` の更新
+# 手順24: `code-analysis-server/CodeAnalysisServer/CodeAnalysisServer.csproj` の更新
 
 `CodeAnalysisServer.csproj`を以下の内容に置き換えます。これは、必要なパッケージ参照を含むプロジェクトファイルです。
 
@@ -3409,7 +3409,7 @@ mkdir Workspace
 
 ---
 
-# 手順27: `Api/Enums/CodeCheckSeverity.cs` を作成
+# 手順27: `code-analysis-server/CodeAnalysisServer/Api/Enums/CodeCheckSeverity.cs` を作成
 
 ```cs
 namespace CodeAnalysisServer.Api.Enums
@@ -3427,7 +3427,7 @@ namespace CodeAnalysisServer.Api.Enums
 
 ---
 
-# 手順28: `Api/Interfaces` フォルダ内のインターフェースを作成
+# 手順28: `code-analysis-server/CodeAnalysisServer/Api/Interfaces` フォルダ内のインターフェースを作成
 
 各インターフェースファイルを作成し、以下の内容を記述します。
 
@@ -3545,7 +3545,7 @@ namespace CodeAnalysisServer.Api.Interfaces
 
 ---
 
-# 手順29: `Api/Requests` フォルダ内のリクエストクラスを作成
+# 手順29: `code-analysis-server/CodeAnalysisServer/Api/Requests` フォルダ内のリクエストクラスを作成
 
 各リクエストファイルを作成し、以下の内容を記述します。
 
@@ -3619,7 +3619,7 @@ namespace CodeAnalysisServer.Api.Requests
 
 ---
 
-# 手順30: `Api/Responses` フォルダ内のレスポンスクラスを作成
+# 手順30: `code-analysis-server/CodeAnalysisServer/Api/Responses` フォルダ内のレスポンスクラスを作成
 
 各レスポンスファイルを作成し、以下の内容を記述します。
 
@@ -3710,7 +3710,7 @@ namespace CodeAnalysisServer.Api.Responses
 
 ---
 
-# 手順31: `Controllers` フォルダ内のコントローラーを作成
+# 手順31: `code-analysis-server/CodeAnalysisServer/Controllers` フォルダ内のコントローラーを作成
 
 各コントローラーファイルを作成し、以下の内容を記述します。
 
@@ -3951,7 +3951,7 @@ namespace CodeAnalysisServer.Controllers
 
 ---
 
-# 手順32: `Properties/launchSettings.json` を編集
+# 手順32: `code-analysis-server/CodeAnalysisServer/Properties/launchSettings.json` を編集
 
 既に存在する`Properties/launchSettings.json`を開き、必要に応じて編集します。
 基本的には以下のようになっていますが、ポート番号やその他の設定を調整してください。
@@ -4006,7 +4006,7 @@ namespace CodeAnalysisServer.Controllers
 
 ---
 
-# 手順33: `Services` フォルダ内のサービスクラスを作成
+# 手順33: `code-analysis-server/CodeAnalysisServer/Services` フォルダ内のサービスクラスを作成
 
 各サービスファイルを作成し、以下の内容を記述します。
 
@@ -4665,7 +4665,7 @@ namespace CodeAnalysisServer.Services
 
 ---
 
-# 手順34: `Workspace` フォルダ内のクラスを作成
+# 手順34: `code-analysis-server/CodeAnalysisServer/Workspace` フォルダ内のクラスを作成
 
 ## CompletionWorkspace.cs
 
@@ -4735,7 +4735,7 @@ namespace CodeAnalysisServer.Workspace
 
 ---
 
-# 手順35: `appsettings.json` と `appsettings.Development.json` を設定
+# 手順35: `code-analysis-server/CodeAnalysisServer`直下のアプリ設定を設定
 
 `appsettings.json` と `appsettings.Development.json` を以下のように設定します。
 
@@ -4768,7 +4768,7 @@ namespace CodeAnalysisServer.Workspace
 
 ---
 
-# 手順36: `CodeAnalysisServer.http` を作成
+# 手順36: `code-analysis-server/CodeAnalysisServer/CodeAnalysisServer.http` を作成
 
 APIのテスト用にHTTPリクエストを定義する`CodeAnalysisServer.http`ファイルを作成します。
 
@@ -4783,7 +4783,7 @@ Accept: application/json
 
 ---
 
-# 手順37: `Program.cs` を編集
+# 手順37: `code-analysis-server/CodeAnalysisServer/Program.cs` を編集
 
 `Program.cs` を開き、必要なサービスを登録します。
 以下のように編集します。
