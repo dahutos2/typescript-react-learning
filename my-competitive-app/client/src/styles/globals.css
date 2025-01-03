@@ -41,3 +41,19 @@ pre {
     text-align: center;
     margin-bottom: 20px;
 }
+
+/* Quick Fixのデザイン */
+
+.monaco-editor .context-view .action-widget {
+    font-size: 7px;
+}
+
+.monaco-editor .context-view .action-widget .monaco-list-rows .monaco-list-row.action {
+    width: auto;
+}
+
+.monaco-editor .context-view .action-widget .monaco-list-rows .monaco-list-row.action .title {
+    color: inherit;
+    display: inline-block;
+    margin: 0 auto;
+}

@@ -31,6 +31,7 @@ namespace CodeAnalysisServer.Controllers
                 .Where(d => d.Severity == CodeCheckSeverity.Error)
                 .Select(d => new
                 {
+                    id = d.Id,
                     message = d.Message,
                     line = d.Line,
                     character = d.Character
@@ -41,6 +42,7 @@ namespace CodeAnalysisServer.Controllers
                 .Where(d => d.Severity == CodeCheckSeverity.Warning)
                 .Select(d => new
                 {
+                    id = d.Id,
                     message = d.Message,
                     line = d.Line,
                     character = d.Character

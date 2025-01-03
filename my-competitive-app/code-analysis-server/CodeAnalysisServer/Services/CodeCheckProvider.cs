@@ -2,7 +2,7 @@ using CodeAnalysisServer.Api.Enums;
 using CodeAnalysisServer.Api.Interfaces;
 using CodeAnalysisServer.Api.Requests;
 using CodeAnalysisServer.Api.Responses;
-using CodeAnalysisServer.Workspace;
+using CodeAnalysisServer.Workspaces;
 using Microsoft.CodeAnalysis;
 
 namespace CodeAnalysisServer.Services

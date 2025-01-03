@@ -1,7 +1,7 @@
 using CodeAnalysisServer.Api.Interfaces;
 using CodeAnalysisServer.Api.Requests;
 using CodeAnalysisServer.Api.Responses;
-using CodeAnalysisServer.Workspace;
+using CodeAnalysisServer.Workspaces;
 using Microsoft.CodeAnalysis.Completion;
 
 namespace CodeAnalysisServer.Services

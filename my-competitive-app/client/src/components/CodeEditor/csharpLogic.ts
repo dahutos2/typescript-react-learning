@@ -23,27 +23,27 @@ export async function diagnoseCSharpCode(
         const data = await response.json();
         const { errors = [], warnings = [] } = data;
 
-        // markersに変換
-        const newMarkers: monacoEditor.editor.IMarkerData[] = [
-            ...errors.map((err: any) => ({
-                severity: monacoEditor.MarkerSeverity.Error,
-                startLineNumber: err.line,
-                startColumn: err.character,
-                endLineNumber: err.line,
-                endColumn: err.character + 1,
-                message: err.message,
-                code: 'CS_ERROR',
-            })),
-            ...warnings.map((warn: any) => ({
-                severity: monacoEditor.MarkerSeverity.Warning,
-                startLineNumber: warn.line,
-                startColumn: warn.character,
-                endLineNumber: warn.line,
-                endColumn: warn.character + 1,
-                message: warn.message,
-                code: 'CS_WARNING',
-            })),
+        const DOC_BASE_URL = 'https://learn.microsoft.com/ja-jp/dotnet/csharp/misc/';
+
+        // エラーと警告を統合し、それぞれに対応するseverityを設定
+        const combinedMarkers = [
+            ...errors.map((err: any) => ({ ...err, severity: monacoEditor.MarkerSeverity.Error })),
+            ...warnings.map((warn: any) => ({ ...warn, severity: monacoEditor.MarkerSeverity.Warning })),
         ];
+
+        // マーカーの生成
+        const newMarkers: monacoEditor.editor.IMarkerData[] = combinedMarkers.map((marker: any) => ({
+            severity: marker.severity,
+            startLineNumber: marker.line,
+            startColumn: marker.character,
+            endLineNumber: marker.line,
+            endColumn: marker.character + 1,
+            message: marker.message,
+            code: {
+                value: marker.id,
+                target: monaco.Uri.parse(`${DOC_BASE_URL}${marker.id}`),
+            },
+        }));
 
         monaco.editor.setModelMarkers(model, 'csharp', newMarkers);
     } catch (error) {
@@ -198,32 +198,66 @@ export function registerCSharpProviders(
     // --- クイックフィックスの登録 ---
     monaco.languages.registerCodeActionProvider('csharp', {
         provideCodeActions: async (model, range, context, token) => {
-            const diagnostics = context.markers;
+            const code = model.getValue();
+            const position = model.getOffsetAt(range.getStartPosition());
+
+            // 診断情報を取得
+            const diagnostics = context.markers.filter(marker =>
+                marker.severity === monaco.MarkerSeverity.Warning ||
+                marker.severity === monaco.MarkerSeverity.Error
+            );
+
             const actions: monacoEditor.languages.CodeAction[] = [];
+            const addedUsings = new Set<string>();
 
             for (const diagnostic of diagnostics) {
-                // 未定義の型エラーを検出（例: CS0246）
-                if (typeof diagnostic.code === 'string' && diagnostic.code.startsWith('CS')) {
-                    const typeNameMatch = /The type or namespace name '([\w.]+)' could not be found/.exec(diagnostic.message ?? '');
-                    if (typeNameMatch?.[1]) { // オプショナルチェイニングを使用
-                        const typeName = typeNameMatch[1];
-                        const lastDotIndex = typeName.lastIndexOf('.');
-                        if (lastDotIndex > 0) {
-                            const namespaceName = typeName.substring(0, lastDotIndex);
+                // CodeFixのリクエスト
+                try {
+                    const res = await fetch('/api/csharp-codefix', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, code, position: position }),
+                    });
 
-                            // クイックフィックスを追加
+                    if (!res.ok) {
+                        throw new Error(`C#CodeFixサーバーエラー: ${res.statusText}`);
+                    }
+
+                    const data = await res.json();
+                    if (data.fixes && data.fixes.length > 0) {
+                        // 複数の修正が返される場合を考慮
+                        for (const fix of data.fixes) {
+                            if (addedUsings.has(fix.text.trim())) {
+                                continue; // 既に追加したusingはスキップ
+                            }
+                            addedUsings.add(fix.text.trim());
+
                             actions.push({
-                                title: `Add using ${namespaceName};`,
-                                command: {
-                                    id: 'addUsing',
-                                    title: 'Add Using',
-                                    arguments: [model, namespaceName]
+                                title: fix.title,
+                                edit: {
+                                    edits: [
+                                        {
+                                            resource: model.uri,
+                                            textEdit: {
+                                                range: new monaco.Range(
+                                                    fix.range.startLineNumber,
+                                                    fix.range.startColumn,
+                                                    fix.range.endLineNumber,
+                                                    fix.range.endColumn
+                                                ),
+                                                text: fix.text,
+                                            },
+                                            versionId: model.getVersionId()
+                                        }
+                                    ],
                                 },
                                 diagnostics: [diagnostic],
                                 kind: 'quickfix'
                             });
                         }
                     }
+                } catch (error) {
+                    console.error('C#CodeFixリクエスト失敗:', error);
                 }
             }
 
@@ -232,53 +266,5 @@ export function registerCSharpProviders(
                 dispose: () => { }
             };
         }
-    });
-
-    // --- クイックフィックス用のコマンドの登録 ---
-    monaco.editor.registerCommand('addUsing', (accessor, args) => {
-        // 型安全性の確保
-        if (!Array.isArray(args) || args.length < 2) {
-            console.error('addUsing コマンドの引数が不正です。');
-            return;
-        }
-
-        const [model, namespaceName] = args as [monacoEditor.editor.ITextModel, string];
-        const fullText = model.getValue();
-
-        // `using` が既に存在するか確認
-        if (fullText.includes(`using ${namespaceName};`)) {
-            return;
-        }
-
-        // 最後の `using` の後に挿入
-        const usingRegex = /^\s*using\s+[^\s;]+;\s*$/gm;
-        let lastMatch: RegExpExecArray | null = null;
-        let match: RegExpExecArray | null;
-
-        while ((match = usingRegex.exec(fullText)) !== null) {
-            lastMatch = match;
-        }
-
-        let insertPosition: monacoEditor.Position;
-        if (lastMatch) {
-            const index = lastMatch.index + lastMatch[0].length;
-            insertPosition = model.getPositionAt(index);
-        } else {
-            // `using` が存在しない場合、名前空間宣言の前に挿入
-            const namespaceRegex = /^\s*namespace\s+\w+/m;
-            const nsMatch = namespaceRegex.exec(fullText);
-            if (nsMatch) {
-                insertPosition = model.getPositionAt(nsMatch.index);
-            } else {
-                // 名前空間宣言もない場合、ファイルの先頭に挿入
-                insertPosition = new monacoEditor.Position(1, 1);
-            }
-        }
-
-        // `using` ステートメントを挿入
-        model.applyEdits([{
-            range: new monacoEditor.Range(insertPosition.lineNumber, insertPosition.column, insertPosition.lineNumber, insertPosition.column),
-            text: `using ${namespaceName};\n`
-        }]);
     });
 }

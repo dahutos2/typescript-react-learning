@@ -19,6 +19,7 @@ my-competitive-app/
   │   │   │   ├─ Interfaces/
   │   │   │   │   ├─ IAssemblyProvider.cs
   │   │   │   │   ├─ ICodeCheckProvider.cs
+  │   │   │   │   ├─ ICodeFixProvider.cs
   │   │   │   │   ├─ ICompletionProvider.cs
   │   │   │   │   ├─ IHoverInformationProvider.cs
   │   │   │   │   ├─ IRequest.cs
@@ -27,17 +28,20 @@ my-competitive-app/
   │   │   │   │   └─ ITabCompletionProvider.cs
   │   │   │   ├─ Requests/
   │   │   │   │   ├─ CodeCheckRequest.cs
+  │   │   │   │   ├─ CodeFixRequest.cs
   │   │   │   │   ├─ CompletionRequest.cs
   │   │   │   │   ├─ HoverInfoRequest.cs
   │   │   │   │   ├─ SignatureHelpRequest.cs
   │   │   │   │   └─ TabCompletionRequest.cs
   │   │   │   └─ Responses/
   │   │   │       ├─ CodeCheckResult.cs
+  │   │   │       ├─ CodeFixResult.cs
   │   │   │       ├─ CompletionResult.cs
   │   │   │       ├─ HoverInfoResult.cs
   │   │   │       ├─ SignatureHelpResult.cs
   │   │   │       └─ TabCompletionResult.cs
   │   │   ├─ Controllers/
+  │   │   │   ├─ CSharpCodeFixController.cs
   │   │   │   ├─ CSharpCompleteController.cs
   │   │   │   ├─ CSharpDiagnoseController.cs
   │   │   │   ├─ CSharpHoverController.cs
@@ -48,13 +52,14 @@ my-competitive-app/
   │   │   ├─ Services/
   │   │   │   ├─ AssemblyProvider.cs
   │   │   │   ├─ CodeCheckProvider.cs
+  │   │   │   ├─ CodeFixProvider.cs
   │   │   │   ├─ CompletionProvider.cs
   │   │   │   ├─ HoverInfoBuilder.cs
   │   │   │   ├─ HoverInformationProvider.cs
   │   │   │   ├─ InvocationContext.cs
   │   │   │   ├─ SignatureHelpProvider.cs
   │   │   │   └─ TabCompletionProvider.cs
-  │   │   ├─ Workspace/
+  │   │   ├─ Workspaces/
   │   │   │   └─ CompletionWorkspace.cs
   │   │   ├─ appsettings.Development.json
   │   │   ├─ appsettings.json
@@ -376,6 +381,7 @@ app.post('/api/csharp-diagnose', (req, res) => proxyRequest(req, res, 'diagnose'
 app.post('/api/csharp-hover', (req, res) => proxyRequest(req, res, 'hover'));
 app.post('/api/csharp-signatureHelp', (req, res) => proxyRequest(req, res, 'signatureHelp'));
 app.post('/api/csharp-tabCompletion', (req, res) => proxyRequest(req, res, 'tabCompletion'));
+app.post('/api/csharp-codefix', (req, res) => proxyRequest(req, res, 'codefix'));
 
 // 全てのルートをReactアプリにフォワード
 app.get('*', (req, res) => {
@@ -463,7 +469,6 @@ function saveTestCaseResults(userId: string, testCaseResults: TestCaseResult[]):
   fs.writeFileSync(filePath, JSON.stringify(testCaseResults, null, 2), 'utf8');
 }
 
-
 // ユーザーの検証と残り時間の更新
 function validateUser(userId: string): void {
   const userState = userStates[userId];
@@ -489,8 +494,8 @@ function validateUser(userId: string): void {
 }
 
 function sanitizeOutput(output: string): string {
-  // ファイルパスのマッチ
-  const pathRegex = /(?:[A-Za-z]:\\|\/)?(?:[\w.-]+[\\/])*[\w.-]+\.\w+/g;
+  // ファイルパスのマッチ（ディレクトリ区切り文字を必須）
+  const pathRegex = /(?:[A-Za-z]:\\|\/|\.{1,2}[\\/])(?:[\w.-]+[\\/])+[\w.-]+\.\w+/g;
 
   // ソースコードの行番号のマッチ
   const lineNumberRegex = /in .*?:line \d+/g;
@@ -1060,6 +1065,21 @@ pre {
     text-align: center;
     margin-bottom: 20px;
 }
+
+/* Quick Fixのデザイン */
+.monaco-editor .context-view .action-widget {
+    font-size: 7px;
+}
+
+.monaco-editor .context-view .action-widget .monaco-list-rows .monaco-list-row.action {
+    width: auto;
+}
+
+.monaco-editor .context-view .action-widget .monaco-list-rows .monaco-list-row.action .title {
+    color: inherit;
+    display: inline-block;
+    margin: 0 auto;
+}
 ```
 
 ---
@@ -1413,27 +1433,27 @@ export async function diagnoseCSharpCode(
         const data = await response.json();
         const { errors = [], warnings = [] } = data;
 
-        // markersに変換
-        const newMarkers: monacoEditor.editor.IMarkerData[] = [
-            ...errors.map((err: any) => ({
-                severity: monacoEditor.MarkerSeverity.Error,
-                startLineNumber: err.line,
-                startColumn: err.character,
-                endLineNumber: err.line,
-                endColumn: err.character + 1,
-                message: err.message,
-                code: 'CS_ERROR',
-            })),
-            ...warnings.map((warn: any) => ({
-                severity: monacoEditor.MarkerSeverity.Warning,
-                startLineNumber: warn.line,
-                startColumn: warn.character,
-                endLineNumber: warn.line,
-                endColumn: warn.character + 1,
-                message: warn.message,
-                code: 'CS_WARNING',
-            })),
+        const DOC_BASE_URL = 'https://learn.microsoft.com/ja-jp/dotnet/csharp/misc/';
+
+        // エラーと警告を統合し、それぞれに対応するseverityを設定
+        const combinedMarkers = [
+            ...errors.map((err: any) => ({ ...err, severity: monacoEditor.MarkerSeverity.Error })),
+            ...warnings.map((warn: any) => ({ ...warn, severity: monacoEditor.MarkerSeverity.Warning })),
         ];
+
+        // マーカーの生成
+        const newMarkers: monacoEditor.editor.IMarkerData[] = combinedMarkers.map((marker: any) => ({
+            severity: marker.severity,
+            startLineNumber: marker.line,
+            startColumn: marker.character,
+            endLineNumber: marker.line,
+            endColumn: marker.character + 1,
+            message: marker.message,
+            code: {
+                value: marker.id,
+                target: monaco.Uri.parse(`${DOC_BASE_URL}${marker.id}`),
+            },
+        }));
 
         monaco.editor.setModelMarkers(model, 'csharp', newMarkers);
     } catch (error) {
@@ -1588,32 +1608,66 @@ export function registerCSharpProviders(
     // --- クイックフィックスの登録 ---
     monaco.languages.registerCodeActionProvider('csharp', {
         provideCodeActions: async (model, range, context, token) => {
-            const diagnostics = context.markers;
+            const code = model.getValue();
+            const position = model.getOffsetAt(range.getStartPosition());
+
+            // 診断情報を取得
+            const diagnostics = context.markers.filter(marker =>
+                marker.severity === monaco.MarkerSeverity.Warning ||
+                marker.severity === monaco.MarkerSeverity.Error
+            );
+
             const actions: monacoEditor.languages.CodeAction[] = [];
+            const addedUsings = new Set<string>();
 
             for (const diagnostic of diagnostics) {
-                // 未定義の型エラーを検出（例: CS0246）
-                if (typeof diagnostic.code === 'string' && diagnostic.code.startsWith('CS')) {
-                    const typeNameMatch = /The type or namespace name '([\w.]+)' could not be found/.exec(diagnostic.message ?? '');
-                    if (typeNameMatch?.[1]) { // オプショナルチェイニングを使用
-                        const typeName = typeNameMatch[1];
-                        const lastDotIndex = typeName.lastIndexOf('.');
-                        if (lastDotIndex > 0) {
-                            const namespaceName = typeName.substring(0, lastDotIndex);
+                // CodeFixのリクエスト
+                try {
+                    const res = await fetch('/api/csharp-codefix', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, code, position: position }),
+                    });
 
-                            // クイックフィックスを追加
+                    if (!res.ok) {
+                        throw new Error(`C#CodeFixサーバーエラー: ${res.statusText}`);
+                    }
+
+                    const data = await res.json();
+                    if (data.fixes && data.fixes.length > 0) {
+                        // 複数の修正が返される場合を考慮
+                        for (const fix of data.fixes) {
+                            if (addedUsings.has(fix.text.trim())) {
+                                continue; // 既に追加したusingはスキップ
+                            }
+                            addedUsings.add(fix.text.trim());
+
                             actions.push({
-                                title: `Add using ${namespaceName};`,
-                                command: {
-                                    id: 'addUsing',
-                                    title: 'Add Using',
-                                    arguments: [model, namespaceName]
+                                title: fix.title,
+                                edit: {
+                                    edits: [
+                                        {
+                                            resource: model.uri,
+                                            textEdit: {
+                                                range: new monaco.Range(
+                                                    fix.range.startLineNumber,
+                                                    fix.range.startColumn,
+                                                    fix.range.endLineNumber,
+                                                    fix.range.endColumn
+                                                ),
+                                                text: fix.text,
+                                            },
+                                            versionId: model.getVersionId()
+                                        }
+                                    ],
                                 },
                                 diagnostics: [diagnostic],
                                 kind: 'quickfix'
                             });
                         }
                     }
+                } catch (error) {
+                    console.error('C#CodeFixリクエスト失敗:', error);
                 }
             }
 
@@ -1622,54 +1676,6 @@ export function registerCSharpProviders(
                 dispose: () => { }
             };
         }
-    });
-
-    // --- クイックフィックス用のコマンドの登録 ---
-    monaco.editor.registerCommand('addUsing', (accessor, args) => {
-        // 型安全性の確保
-        if (!Array.isArray(args) || args.length < 2) {
-            console.error('addUsing コマンドの引数が不正です。');
-            return;
-        }
-
-        const [model, namespaceName] = args as [monacoEditor.editor.ITextModel, string];
-        const fullText = model.getValue();
-
-        // `using` が既に存在するか確認
-        if (fullText.includes(`using ${namespaceName};`)) {
-            return;
-        }
-
-        // 最後の `using` の後に挿入
-        const usingRegex = /^\s*using\s+[^\s;]+;\s*$/gm;
-        let lastMatch: RegExpExecArray | null = null;
-        let match: RegExpExecArray | null;
-
-        while ((match = usingRegex.exec(fullText)) !== null) {
-            lastMatch = match;
-        }
-
-        let insertPosition: monacoEditor.Position;
-        if (lastMatch) {
-            const index = lastMatch.index + lastMatch[0].length;
-            insertPosition = model.getPositionAt(index);
-        } else {
-            // `using` が存在しない場合、名前空間宣言の前に挿入
-            const namespaceRegex = /^\s*namespace\s+\w+/m;
-            const nsMatch = namespaceRegex.exec(fullText);
-            if (nsMatch) {
-                insertPosition = model.getPositionAt(nsMatch.index);
-            } else {
-                // 名前空間宣言もない場合、ファイルの先頭に挿入
-                insertPosition = new monacoEditor.Position(1, 1);
-            }
-        }
-
-        // `using` ステートメントを挿入
-        model.applyEdits([{
-            range: new monacoEditor.Range(insertPosition.lineNumber, insertPosition.column, insertPosition.lineNumber, insertPosition.column),
-            text: `using ${namespaceName};\n`
-        }]);
     });
 }
 ```
@@ -3461,6 +3467,21 @@ namespace CodeAnalysisServer.Api.Interfaces
 }
 ```
 
+## ICodeFixProvider.cs
+
+```cs
+using CodeAnalysisServer.Api.Requests;
+using CodeAnalysisServer.Api.Responses;
+
+namespace CodeAnalysisServer.Api.Interfaces
+{
+    public interface ICodeFixProvider
+    {
+        Task<CodeFixResult[]> ProvideAsync(CodeFixRequest request);
+    }
+}
+```
+
 ## ICompletionProvider.cs
 
 ```cs
@@ -3561,6 +3582,20 @@ namespace CodeAnalysisServer.Api.Requests
 }
 ```
 
+## CodeFixRequest.cs
+
+```cs
+namespace CodeAnalysisServer.Api.Requests
+{
+    public class CodeFixRequest
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public int Position { get; set; }
+    }
+}
+```
+
 ## CompletionRequest.cs
 
 ```cs
@@ -3641,6 +3676,28 @@ namespace CodeAnalysisServer.Api.Responses
 }
 ```
 
+## CodeFixResult.cs
+
+```cs
+namespace CodeAnalysisServer.Api.Responses
+{
+    public class CodeFixResult
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Text { get; set; } = string.Empty;
+        public required Range Range { get; set; }
+    }
+
+    public class Range
+    {
+        public int StartLineNumber { get; set; }
+        public int StartColumn { get; set; }
+        public int EndLineNumber { get; set; }
+        public int EndColumn { get; set; }
+    }
+}
+```
+
 ## CompletionResult.cs
 
 ```cs
@@ -3713,6 +3770,60 @@ namespace CodeAnalysisServer.Api.Responses
 # 手順31: `code-analysis-server/CodeAnalysisServer/Controllers` フォルダ内のコントローラーを作成
 
 各コントローラーファイルを作成し、以下の内容を記述します。
+
+## CSharpCodeFixController.cs
+
+```cs
+using CodeAnalysisServer.Api.Interfaces;
+using CodeAnalysisServer.Api.Requests;
+using Microsoft.AspNetCore.Mvc;
+
+namespace CodeAnalysisServer.Controllers
+{
+    [ApiController]
+    [Route("api/csharp")]
+    public class CSharpCodeFixController : ControllerBase
+    {
+        private readonly ICodeFixProvider _codeFixProvider;
+
+        public CSharpCodeFixController(ICodeFixProvider codeFixProvider)
+        {
+            _codeFixProvider = codeFixProvider;
+        }
+
+        // POST: /api/csharp/codefix
+        [HttpPost("codefix")]
+        public async Task<IActionResult> CodeFix([FromBody] CodeFixRequest request)
+        {
+            if (string.IsNullOrEmpty(request.Code))
+            {
+                return BadRequest(new { message = "Code is null or empty." });
+            }
+
+            if (request.Position < 0 || request.Position > request.Code.Length)
+            {
+                return BadRequest(new { message = "Position is out of range." });
+            }
+
+            try
+            {
+                var fixes = await _codeFixProvider.ProvideAsync(request);
+                if (fixes.Length == 0)
+                {
+                    return Ok(new { fixes = Array.Empty<object>() });
+                }
+                return Ok(new { fixes });
+            }
+            catch (Exception ex)
+            {
+                // ログにエラーを記録
+                Console.WriteLine($"Error in CodeFix: {ex.Message}");
+                return StatusCode(500, new { message = "Internal server error." });
+            }
+        }
+    }
+}
+```
 
 ## CSharpCompleteController.cs
 
@@ -3807,6 +3918,7 @@ namespace CodeAnalysisServer.Controllers
                 .Where(d => d.Severity == CodeCheckSeverity.Error)
                 .Select(d => new
                 {
+                    id = d.Id,
                     message = d.Message,
                     line = d.Line,
                     character = d.Character
@@ -3817,6 +3929,7 @@ namespace CodeAnalysisServer.Controllers
                 .Where(d => d.Severity == CodeCheckSeverity.Warning)
                 .Select(d => new
                 {
+                    id = d.Id,
                     message = d.Message,
                     line = d.Line,
                     character = d.Character
@@ -4040,7 +4153,7 @@ using CodeAnalysisServer.Api.Enums;
 using CodeAnalysisServer.Api.Interfaces;
 using CodeAnalysisServer.Api.Requests;
 using CodeAnalysisServer.Api.Responses;
-using CodeAnalysisServer.Workspace;
+using CodeAnalysisServer.Workspaces;
 using Microsoft.CodeAnalysis;
 
 namespace CodeAnalysisServer.Services
@@ -4093,13 +4206,164 @@ namespace CodeAnalysisServer.Services
 }
 ```
 
+## CodeFixProvider.cs
+
+```cs
+using CodeAnalysisServer.Api.Interfaces;
+using CodeAnalysisServer.Api.Requests;
+using CodeAnalysisServer.Api.Responses;
+using CodeAnalysisServer.Workspaces;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Formatting;
+
+namespace CodeAnalysisServer.Services
+{
+    public class CodeFixProvider : ICodeFixProvider
+    {
+        private readonly IAssemblyProvider _assemblyProvider;
+
+        public CodeFixProvider(IAssemblyProvider assemblyProvider)
+        {
+            _assemblyProvider = assemblyProvider;
+        }
+
+        public async Task<CodeFixResult[]> ProvideAsync(CodeFixRequest request)
+        {
+            var workspace = new CompletionWorkspace(_assemblyProvider);
+            var document = await workspace.CreateDocumentAsync(request.Code);
+            if (document == null) return [];
+
+            var semanticModel = await document.GetSemanticModelAsync();
+            var syntaxRoot = await document.GetSyntaxRootAsync();
+
+            if (semanticModel == null || syntaxRoot == null) return [];
+
+            var diagnostics = semanticModel.GetDiagnostics().Where(d =>
+                d.Severity == DiagnosticSeverity.Error ||
+                d.Severity == DiagnosticSeverity.Warning);
+
+            var fixes = new List<CodeFixResult>();
+
+            foreach (var diagnostic in diagnostics)
+            {
+                // 足りていない using に関する診断をフィルタリング
+                if (diagnostic.Id == "CS0246" || diagnostic.Id == "CS1061")
+                {
+                    var diagnosticSpan = diagnostic.Location.SourceSpan;
+                    var node = syntaxRoot.FindNode(diagnosticSpan);
+
+                    var identifierName = node as IdentifierNameSyntax;
+                    if (identifierName == null) continue;
+
+                    var missingName = identifierName.Identifier.Text;
+                    var compilation = await document.Project.GetCompilationAsync();
+                    if (compilation == null) continue;
+
+                    // すべてのメタデータ参照アセンブリを取得
+                    foreach (var reference in compilation.References)
+                    {
+                        if (reference is MetadataReference metadataReference)
+                        {
+                            var assemblySymbol = compilation.GetAssemblyOrModuleSymbol(metadataReference) as IAssemblySymbol;
+                            if (assemblySymbol == null)
+                                continue;
+
+                            foreach (var namespaceSymbol in GetAllNamespaces(assemblySymbol.GlobalNamespace))
+                            {
+                                foreach (var typeSymbol in namespaceSymbol.GetTypeMembers())
+                                {
+                                    foreach (var member in typeSymbol.GetMembers(missingName))
+                                    {
+                                        if (member is IMethodSymbol methodSymbol && methodSymbol.Name == missingName)
+                                        {
+                                            string namespaceToAdd = typeSymbol.ContainingNamespace.ToDisplayString();
+                                            Console.WriteLine($"Found method: {methodSymbol.Name} in namespace: {namespaceToAdd}");
+
+                                            // 既にusingが存在するか確認
+                                            var compilationUnit = syntaxRoot as CompilationUnitSyntax;
+                                            if (compilationUnit == null) continue;
+
+                                            bool alreadyHasUsing = compilationUnit.Usings.Any(u => u.Name?.ToString() == namespaceToAdd);
+                                            if (alreadyHasUsing)
+                                                continue;
+
+                                            // 既存のusingディレクティブの最後に追加
+                                            var lastUsing = compilationUnit.Usings.LastOrDefault();
+                                            var usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceToAdd))
+                                                                          .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
+
+                                            CompilationUnitSyntax newCompilationUnit;
+                                            if (lastUsing != null)
+                                            {
+                                                newCompilationUnit = compilationUnit.InsertNodesAfter(lastUsing, new[] { usingDirective });
+                                            }
+                                            else
+                                            {
+                                                // 既存のusingがない場合は先頭に追加
+                                                newCompilationUnit = compilationUnit.AddUsings(usingDirective);
+                                            }
+
+                                            // フォーマットを適用
+                                            var formattedRoot = Formatter.Format(newCompilationUnit, workspace);
+
+                                            // 修正範囲を設定（usingディレクティブの挿入位置）
+                                            var insertionLine = lastUsing != null
+                                                ? lastUsing.GetLocation().GetLineSpan().EndLinePosition.Line + 1
+                                                : 0;
+
+                                            var fix = new CodeFixResult
+                                            {
+                                                Title = $"using {namespaceToAdd};",
+                                                Text = $"using {namespaceToAdd};\n",
+                                                Range = new Api.Responses.Range
+                                                {
+                                                    StartLineNumber = insertionLine + 1, // Monaco Editor は1ベース
+                                                    StartColumn = 1,
+                                                    EndLineNumber = insertionLine + 1,
+                                                    EndColumn = 1
+                                                }
+                                            };
+
+                                            if (!fixes.Any(f => f.Title == fix.Title))
+                                            {
+                                                fixes.Add(fix);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return fixes.ToArray();
+        }
+        // 再帰的にすべての名前空間を取得するヘルパーメソッド
+        private IEnumerable<INamespaceSymbol> GetAllNamespaces(INamespaceSymbol root)
+        {
+            foreach (var ns in root.GetNamespaceMembers())
+            {
+                yield return ns;
+                foreach (var child in GetAllNamespaces(ns))
+                {
+                    yield return child;
+                }
+            }
+        }
+    }
+}
+```
+
 ## CompletionProvider.cs
 
 ```cs
 using CodeAnalysisServer.Api.Interfaces;
 using CodeAnalysisServer.Api.Requests;
 using CodeAnalysisServer.Api.Responses;
-using CodeAnalysisServer.Workspace;
+using CodeAnalysisServer.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Completion;
 using Microsoft.Extensions.Caching.Memory;
@@ -4270,7 +4534,7 @@ namespace CodeAnalysisServer.Services
 using CodeAnalysisServer.Api.Interfaces;
 using CodeAnalysisServer.Api.Requests;
 using CodeAnalysisServer.Api.Responses;
-using CodeAnalysisServer.Workspace;
+using CodeAnalysisServer.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -4455,7 +4719,7 @@ namespace CodeAnalysisServer.Services
 using CodeAnalysisServer.Api.Interfaces;
 using CodeAnalysisServer.Api.Requests;
 using CodeAnalysisServer.Api.Responses;
-using CodeAnalysisServer.Workspace;
+using CodeAnalysisServer.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -4618,7 +4882,7 @@ namespace CodeAnalysisServer.Services
 using CodeAnalysisServer.Api.Interfaces;
 using CodeAnalysisServer.Api.Requests;
 using CodeAnalysisServer.Api.Responses;
-using CodeAnalysisServer.Workspace;
+using CodeAnalysisServer.Workspaces;
 using Microsoft.CodeAnalysis.Completion;
 
 namespace CodeAnalysisServer.Services
@@ -4665,7 +4929,7 @@ namespace CodeAnalysisServer.Services
 
 ---
 
-# 手順34: `code-analysis-server/CodeAnalysisServer/Workspace` フォルダ内のクラスを作成
+# 手順34: `code-analysis-server/CodeAnalysisServer/Workspaces` フォルダ内のクラスを作成
 
 ## CompletionWorkspace.cs
 
@@ -4677,14 +4941,15 @@ using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.CodeAnalysis.Text;
 
-namespace CodeAnalysisServer.Workspace
+namespace CodeAnalysisServer.Workspaces
 {
-    public class CompletionWorkspace
+    public class CompletionWorkspace : Workspace
     {
         private readonly Project _project;
         private readonly AdhocWorkspace _workspace;
 
         public CompletionWorkspace(IAssemblyProvider assemblyProvider)
+        : base(MefHostServices.DefaultHost, WorkspaceKind.Host)
         {
             var host = MefHostServices.DefaultHost;
             _workspace = new AdhocWorkspace(host);
@@ -4810,6 +5075,7 @@ builder.Services.AddSingleton<ICodeCheckProvider, CodeCheckProvider>();
 builder.Services.AddSingleton<IHoverInformationProvider, HoverInformationProvider>();
 builder.Services.AddSingleton<ISignatureHelpProvider, SignatureHelpProvider>();
 builder.Services.AddSingleton<ITabCompletionProvider, TabCompletionProvider>();
+builder.Services.AddSingleton<ICodeFixProvider, CodeFixProvider>();
 builder.Services.AddSingleton<IAssemblyProvider>(new AssemblyProvider());
 
 // コントローラーの追加

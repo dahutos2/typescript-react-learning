@@ -19,6 +19,7 @@ builder.Services.AddSingleton<ICodeCheckProvider, CodeCheckProvider>();
 builder.Services.AddSingleton<IHoverInformationProvider, HoverInformationProvider>();
 builder.Services.AddSingleton<ISignatureHelpProvider, SignatureHelpProvider>();
 builder.Services.AddSingleton<ITabCompletionProvider, TabCompletionProvider>();
+builder.Services.AddSingleton<ICodeFixProvider, CodeFixProvider>();
 builder.Services.AddSingleton<IAssemblyProvider>(new AssemblyProvider());
 
 // コントローラーの追加

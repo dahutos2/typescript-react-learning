@@ -160,6 +160,7 @@ app.post('/api/csharp-diagnose', (req, res) => proxyRequest(req, res, 'diagnose'
 app.post('/api/csharp-hover', (req, res) => proxyRequest(req, res, 'hover'));
 app.post('/api/csharp-signatureHelp', (req, res) => proxyRequest(req, res, 'signatureHelp'));
 app.post('/api/csharp-tabCompletion', (req, res) => proxyRequest(req, res, 'tabCompletion'));
+app.post('/api/csharp-codefix', (req, res) => proxyRequest(req, res, 'codefix'));
 
 // 全てのルートをReactアプリにフォワード
 app.get('*', (req, res) => {

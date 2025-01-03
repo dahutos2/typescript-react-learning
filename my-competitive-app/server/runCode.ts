@@ -68,7 +68,6 @@ function saveTestCaseResults(userId: string, testCaseResults: TestCaseResult[]):
   fs.writeFileSync(filePath, JSON.stringify(testCaseResults, null, 2), 'utf8');
 }
 
-
 // ユーザーの検証と残り時間の更新
 function validateUser(userId: string): void {
   const userState = userStates[userId];
@@ -94,8 +93,8 @@ function validateUser(userId: string): void {
 }
 
 function sanitizeOutput(output: string): string {
-  // ファイルパスのマッチ
-  const pathRegex = /(?:[A-Za-z]:\\|\/)?(?:[\w.-]+[\\/])*[\w.-]+\.\w+/g;
+  // ファイルパスのマッチ（ディレクトリ区切り文字を必須）
+  const pathRegex = /(?:[A-Za-z]:\\|\/|\.{1,2}[\\/])(?:[\w.-]+[\\/])+[\w.-]+\.\w+/g;
 
   // ソースコードの行番号のマッチ
   const lineNumberRegex = /in .*?:line \d+/g;

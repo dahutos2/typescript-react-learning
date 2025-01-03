@@ -5,14 +5,15 @@ using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.CodeAnalysis.Text;
 
-namespace CodeAnalysisServer.Workspace
+namespace CodeAnalysisServer.Workspaces
 {
-    public class CompletionWorkspace
+    public class CompletionWorkspace : Workspace
     {
         private readonly Project _project;
         private readonly AdhocWorkspace _workspace;
 
         public CompletionWorkspace(IAssemblyProvider assemblyProvider)
+        : base(MefHostServices.DefaultHost, WorkspaceKind.Host)
         {
             var host = MefHostServices.DefaultHost;
             _workspace = new AdhocWorkspace(host);
