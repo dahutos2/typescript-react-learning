@@ -43,17 +43,18 @@ pre {
 }
 
 /* Quick Fixのデザイン */
-
 .monaco-editor .context-view .action-widget {
     font-size: 7px;
 }
 
 .monaco-editor .context-view .action-widget .monaco-list-rows .monaco-list-row.action {
     width: auto;
+    min-width: 300px;
 }
 
 .monaco-editor .context-view .action-widget .monaco-list-rows .monaco-list-row.action .title {
     color: inherit;
+    text-align: left;
     display: inline-block;
     margin: 0 auto;
 }

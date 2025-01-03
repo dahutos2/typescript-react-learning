@@ -5,7 +5,6 @@ using CodeAnalysisServer.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Formatting;
 
 namespace CodeAnalysisServer.Services
 {
@@ -18,6 +17,11 @@ namespace CodeAnalysisServer.Services
             _assemblyProvider = assemblyProvider;
         }
 
+        /// <summary>
+        /// コードを解析し、診断結果に基づいてコード修正案を生成します。
+        /// </summary>
+        /// <param name="request">解析対象のコードを含むリクエスト</param>
+        /// <returns>生成されたコード修正案のリスト</returns>
         public async Task<CodeFixResult[]> ProvideAsync(CodeFixRequest request)
         {
             var workspace = new CompletionWorkspace(_assemblyProvider);
@@ -26,112 +30,151 @@ namespace CodeAnalysisServer.Services
 
             var semanticModel = await document.GetSemanticModelAsync();
             var syntaxRoot = await document.GetSyntaxRootAsync();
+            var compilation = await document.Project.GetCompilationAsync();
 
-            if (semanticModel == null || syntaxRoot == null) return [];
+            if (semanticModel == null || syntaxRoot == null || compilation == null) return [];
 
-            var diagnostics = semanticModel.GetDiagnostics().Where(d =>
-                d.Severity == DiagnosticSeverity.Error ||
-                d.Severity == DiagnosticSeverity.Warning);
+            // エラーまたは警告で、リクエストと同じ診断情報を取得
+            var diagnostics = semanticModel.GetDiagnostics()
+                .Where(d =>
+                    (d.Severity == DiagnosticSeverity.Error ||
+                    d.Severity == DiagnosticSeverity.Warning) &&
+                    d.Location.SourceSpan.Contains(request.Position)
+                );
 
-            var fixes = new List<CodeFixResult>();
+            // 診断ごとにコード修正案を生成
+            return diagnostics
+                .SelectMany(diagnostic => HandleDiagnostic(diagnostic, compilation, semanticModel, syntaxRoot))
+                .Where(result => result != null).OfType<CodeFixResult>()
+                .ToArray();
+        }
 
-            foreach (var diagnostic in diagnostics)
+        /// <summary>
+        /// 特定の診断情報に基づいて対応する修正案を生成します。
+        /// </summary>
+        private static IEnumerable<CodeFixResult?> HandleDiagnostic(
+            Diagnostic diagnostic, Compilation compilation, SemanticModel semanticModel, SyntaxNode syntaxRoot)
+        {
+            var diagnosticSpan = diagnostic.Location.SourceSpan;
+            if (syntaxRoot.FindNode(diagnosticSpan) is not CSharpSyntaxNode node) yield break;
+
+            switch (diagnostic.Id)
             {
-                // 足りていない using に関する診断をフィルタリング
-                if (diagnostic.Id == "CS0246" || diagnostic.Id == "CS1061")
-                {
-                    var diagnosticSpan = diagnostic.Location.SourceSpan;
-                    var node = syntaxRoot.FindNode(diagnosticSpan);
-
-                    var identifierName = node as IdentifierNameSyntax;
-                    if (identifierName == null) continue;
-
-                    var missingName = identifierName.Identifier.Text;
-                    var compilation = await document.Project.GetCompilationAsync();
-                    if (compilation == null) continue;
-
-                    // すべてのメタデータ参照アセンブリを取得
-                    foreach (var reference in compilation.References)
+                case "CS0246": // 型または名前空間が見つからない場合
+                case "CS0103": // 未定義の識別子の場合
+                    foreach (var fix in HandleMissingTypeOrNamespace(diagnostic, compilation, syntaxRoot, node))
                     {
-                        if (reference is MetadataReference metadataReference)
+                        yield return fix;
+                    }
+                    break;
+
+                case "CS1061": // メソッドやプロパティが見つからない場合
+                    foreach (var fix in HandleMissingMember(diagnostic, compilation, semanticModel, syntaxRoot, node))
+                    {
+                        yield return fix;
+                    }
+                    break;
+
+                default:
+                    // その他のエラーコードは未対応
+                    yield break;
+            }
+        }
+
+        /// <summary>
+        /// 型や名前空間が不足している診断に対応した修正案を生成します。
+        /// </summary>
+        private static IEnumerable<CodeFixResult?> HandleMissingTypeOrNamespace(
+            Diagnostic diagnostic, Compilation compilation, SyntaxNode syntaxRoot, CSharpSyntaxNode node)
+        {
+            // 不足している型や名前空間の名前を取得
+            var missingName = node switch
+            {
+                GenericNameSyntax genericNode => genericNode.Identifier.Text,
+                IdentifierNameSyntax identifierNode => identifierNode.Identifier.Text,
+                _ => null
+            };
+
+            if (missingName == null) yield break;
+
+            // 該当する名前空間を探索し、修正案を生成
+            foreach (var namespaceToAdd in FindNamespacesForMissingTypeOrSymbol(compilation, missingName))
+            {
+                yield return CreateUsingDirectiveFix(diagnostic, syntaxRoot, namespaceToAdd);
+            }
+        }
+
+        /// <summary>
+        /// メンバーが不足している診断に対応した修正案を生成します。
+        /// </summary>
+        private static IEnumerable<CodeFixResult?> HandleMissingMember(
+            Diagnostic diagnostic, Compilation compilation, SemanticModel semanticModel, SyntaxNode syntaxRoot, CSharpSyntaxNode node)
+        {
+            // 親ノードがMemberAccessExpressionSyntaxか確認
+            if (node.Parent is not MemberAccessExpressionSyntax parent) yield break;
+
+            // 不足しているメンバー名を取得
+            var missingMemberName = parent.Name.Identifier.Text;
+            if (parent.Expression is not IdentifierNameSyntax containingType) yield break;
+
+            var typeInfo = semanticModel.GetTypeInfo(containingType);
+
+            // 該当する名前空間を探索し、修正案を生成
+            foreach (var namespaceToAdd in FindNamespacesForMissingTypeOrSymbol(compilation, missingMemberName, typeInfo.Type))
+            {
+                yield return CreateUsingDirectiveFix(diagnostic, syntaxRoot, namespaceToAdd);
+            }
+        }
+
+        /// <summary>
+        /// 不足している型やシンボルに対応する名前空間を検索します。
+        /// </summary>
+        private static IEnumerable<string> FindNamespacesForMissingTypeOrSymbol(
+            Compilation compilation, string name, ITypeSymbol? memberType = null)
+        {
+            foreach (var reference in compilation.References)
+            {
+                if (compilation.GetAssemblyOrModuleSymbol(reference) is not IAssemblySymbol assemblySymbol) continue;
+
+                foreach (var namespaceSymbol in GetAllNamespaces(assemblySymbol.GlobalNamespace))
+                {
+                    foreach (var typeSymbol in namespaceSymbol.GetTypeMembers())
+                    {
+                        if (typeSymbol.Name == name || (memberType != null && IsSameOrDerived(typeSymbol, memberType)))
                         {
-                            var assemblySymbol = compilation.GetAssemblyOrModuleSymbol(metadataReference) as IAssemblySymbol;
-                            if (assemblySymbol == null)
-                                continue;
-
-                            foreach (var namespaceSymbol in GetAllNamespaces(assemblySymbol.GlobalNamespace))
-                            {
-                                foreach (var typeSymbol in namespaceSymbol.GetTypeMembers())
-                                {
-                                    foreach (var member in typeSymbol.GetMembers(missingName))
-                                    {
-                                        if (member is IMethodSymbol methodSymbol && methodSymbol.Name == missingName)
-                                        {
-                                            string namespaceToAdd = typeSymbol.ContainingNamespace.ToDisplayString();
-                                            Console.WriteLine($"Found method: {methodSymbol.Name} in namespace: {namespaceToAdd}");
-
-                                            // 既にusingが存在するか確認
-                                            var compilationUnit = syntaxRoot as CompilationUnitSyntax;
-                                            if (compilationUnit == null) continue;
-
-                                            bool alreadyHasUsing = compilationUnit.Usings.Any(u => u.Name?.ToString() == namespaceToAdd);
-                                            if (alreadyHasUsing)
-                                                continue;
-
-                                            // 既存のusingディレクティブの最後に追加
-                                            var lastUsing = compilationUnit.Usings.LastOrDefault();
-                                            var usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceToAdd))
-                                                                          .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
-
-                                            CompilationUnitSyntax newCompilationUnit;
-                                            if (lastUsing != null)
-                                            {
-                                                newCompilationUnit = compilationUnit.InsertNodesAfter(lastUsing, new[] { usingDirective });
-                                            }
-                                            else
-                                            {
-                                                // 既存のusingがない場合は先頭に追加
-                                                newCompilationUnit = compilationUnit.AddUsings(usingDirective);
-                                            }
-
-                                            // フォーマットを適用
-                                            var formattedRoot = Formatter.Format(newCompilationUnit, workspace);
-
-                                            // 修正範囲を設定（usingディレクティブの挿入位置）
-                                            var insertionLine = lastUsing != null
-                                                ? lastUsing.GetLocation().GetLineSpan().EndLinePosition.Line + 1
-                                                : 0;
-
-                                            var fix = new CodeFixResult
-                                            {
-                                                Title = $"using {namespaceToAdd};",
-                                                Text = $"using {namespaceToAdd};\n",
-                                                Range = new Api.Responses.Range
-                                                {
-                                                    StartLineNumber = insertionLine + 1, // Monaco Editor は1ベース
-                                                    StartColumn = 1,
-                                                    EndLineNumber = insertionLine + 1,
-                                                    EndColumn = 1
-                                                }
-                                            };
-
-                                            if (!fixes.Any(f => f.Title == fix.Title))
-                                            {
-                                                fixes.Add(fix);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            yield return typeSymbol.ContainingNamespace.ToDisplayString();
                         }
                     }
                 }
             }
-
-            return fixes.ToArray();
         }
-        // 再帰的にすべての名前空間を取得するヘルパーメソッド
-        private IEnumerable<INamespaceSymbol> GetAllNamespaces(INamespaceSymbol root)
+
+        /// <summary>
+        /// 指定された型がターゲット型と同一または派生しているかを判定します。
+        /// </summary>
+        private static bool IsSameOrDerived(ITypeSymbol type, ITypeSymbol target)
+        {
+            if (SymbolEqualityComparer.Default.Equals(type, target)) return true;
+
+            // 基底クラスをチェック
+            var baseType = target.BaseType;
+            while (baseType != null)
+            {
+                if (SymbolEqualityComparer.Default.Equals(baseType, type)) return true;
+                baseType = baseType.BaseType;
+            }
+
+            // 実装されたインターフェイスをチェック
+            return target.AllInterfaces.Any(i =>
+                type.GetMembers().OfType<IMethodSymbol>()
+                    .Where(m => m.IsExtensionMethod)
+                    .Any(m => SymbolEqualityComparer.Default.Equals(m.Parameters.FirstOrDefault()?.Type, i)));
+        }
+
+        /// <summary>
+        /// 指定された名前空間をすべて再帰的に取得します。
+        /// </summary>
+        private static IEnumerable<INamespaceSymbol> GetAllNamespaces(INamespaceSymbol root)
         {
             foreach (var ns in root.GetNamespaceMembers())
             {
@@ -142,7 +185,33 @@ namespace CodeAnalysisServer.Services
                 }
             }
         }
+
+        /// <summary>
+        /// usingディレクティブを追加する修正案を生成します。
+        /// </summary>
+        private static CodeFixResult? CreateUsingDirectiveFix(Diagnostic diagnostic, SyntaxNode syntaxRoot, string namespaceToAdd)
+        {
+            var compilationUnit = syntaxRoot as CompilationUnitSyntax;
+            if (compilationUnit == null || compilationUnit.Usings.Any(u => u.Name?.ToString() == namespaceToAdd)) return null;
+
+            var lastUsing = compilationUnit.Usings.LastOrDefault();
+            var insertionLine = lastUsing != null
+                ? lastUsing.GetLocation().GetLineSpan().EndLinePosition.Line + 1
+                : 0;
+
+            return new CodeFixResult
+            {
+                Diagnostic = diagnostic.GetMessage(),
+                Title = $"using {namespaceToAdd};",
+                Text = $"using {namespaceToAdd};\n",
+                Range = new Api.Responses.Range
+                {
+                    StartLineNumber = insertionLine + 1,
+                    StartColumn = 1,
+                    EndLineNumber = insertionLine + 1,
+                    EndColumn = 1
+                }
+            };
+        }
     }
 }
-
-

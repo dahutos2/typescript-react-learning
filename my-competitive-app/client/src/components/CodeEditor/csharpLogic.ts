@@ -202,69 +202,103 @@ export function registerCSharpProviders(
             const position = model.getOffsetAt(range.getStartPosition());
 
             // 診断情報を取得
-            const diagnostics = context.markers.filter(marker =>
-                marker.severity === monaco.MarkerSeverity.Warning ||
-                marker.severity === monaco.MarkerSeverity.Error
-            );
+            const diagnostics = context.markers
+                .filter(marker =>
+                    (marker.severity === monaco.MarkerSeverity.Warning ||
+                        marker.severity === monaco.MarkerSeverity.Error) &&
+                    range.startLineNumber === marker.startLineNumber &&
+                    range.startColumn === marker.startColumn &&
+                    range.endLineNumber === marker.endLineNumber &&
+                    range.endColumn === marker.endColumn
+                );
 
-            const actions: monacoEditor.languages.CodeAction[] = [];
-            const addedUsings = new Set<string>();
-
-            for (const diagnostic of diagnostics) {
-                // CodeFixのリクエスト
-                try {
-                    const res = await fetch('/api/csharp-codefix', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId, code, position: position }),
-                    });
-
-                    if (!res.ok) {
-                        throw new Error(`C#CodeFixサーバーエラー: ${res.statusText}`);
-                    }
-
-                    const data = await res.json();
-                    if (data.fixes && data.fixes.length > 0) {
-                        // 複数の修正が返される場合を考慮
-                        for (const fix of data.fixes) {
-                            if (addedUsings.has(fix.text.trim())) {
-                                continue; // 既に追加したusingはスキップ
-                            }
-                            addedUsings.add(fix.text.trim());
-
-                            actions.push({
-                                title: fix.title,
-                                edit: {
-                                    edits: [
-                                        {
-                                            resource: model.uri,
-                                            textEdit: {
-                                                range: new monaco.Range(
-                                                    fix.range.startLineNumber,
-                                                    fix.range.startColumn,
-                                                    fix.range.endLineNumber,
-                                                    fix.range.endColumn
-                                                ),
-                                                text: fix.text,
-                                            },
-                                            versionId: model.getVersionId()
-                                        }
-                                    ],
-                                },
-                                diagnostics: [diagnostic],
-                                kind: 'quickfix'
-                            });
-                        }
-                    }
-                } catch (error) {
-                    console.error('C#CodeFixリクエスト失敗:', error);
-                }
+            if (diagnostics.length === 0) {
+                return {
+                    actions: [],
+                    dispose: () => { }
+                };
             }
 
-            return {
-                actions,
-                dispose: () => { }
-            };
+            try {
+                // 診断情報をまとめて送信
+                const res = await fetch('/api/csharp-codefix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, code, position: position }),
+                });
+
+                if (!res.ok) {
+                    throw new Error(`C#CodeFixサーバーエラー: ${res.statusText}`);
+                }
+
+                interface CodeFix {
+                    diagnostic: string;
+                    title: string;
+                    text: string;
+                    range: {
+                        startLineNumber: number;
+                        startColumn: number;
+                        endLineNumber: number;
+                        endColumn: number;
+                    };
+                }
+                const data: { fixes: CodeFix[] } = await res.json();
+                if (!data.fixes || data.fixes.length === 0) {
+                    return {
+                        actions: [],
+                        dispose: () => { }
+                    };
+                }
+
+                const actions: monacoEditor.languages.CodeAction[] = [];
+                const appliedFixes = new Set<string>();
+
+                for (const diagnostic of diagnostics) {
+                    // 現在の診断に対応する修正のみを抽出
+                    const fixesForDiagnostic = data.fixes.filter(fix => fix.diagnostic === diagnostic.message);
+                    for (const fix of fixesForDiagnostic) {
+                        const fixIdentifier = `${fix.text}-${fix.diagnostic}`;
+                        if (appliedFixes.has(fixIdentifier)) {
+                            continue; // 同じ修正はスキップ
+                        }
+                        appliedFixes.add(fixIdentifier);
+
+                        actions.push({
+                            title: fix.title,
+                            edit: {
+                                edits: [
+                                    {
+                                        resource: model.uri,
+                                        textEdit: {
+                                            range: new monaco.Range(
+                                                fix.range.startLineNumber,
+                                                fix.range.startColumn,
+                                                fix.range.endLineNumber,
+                                                fix.range.endColumn
+                                            ),
+                                            text: fix.text,
+                                        },
+                                        versionId: model.getVersionId()
+                                    }
+                                ],
+                            },
+                            diagnostics: [diagnostic],
+                            kind: 'quickfix'
+                        });
+                    }
+                }
+
+                return {
+                    actions,
+                    dispose: () => { }
+                };
+            } catch (error) {
+                console.error('C#CodeFixリクエスト失敗:', error);
+                return {
+                    actions: [],
+                    dispose: () => { }
+                };
+            }
         }
     });
 }
