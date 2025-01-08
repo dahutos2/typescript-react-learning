@@ -2136,6 +2136,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     return (
         <div className={styles.loginContainer}>
             <h2 className={styles.loginTitle}>ようこそ！</h2>
+
+            <div className={styles.noticeContainer}>
+                <p>
+                    【注意事項】
+                    <br />
+                    ・本番中は他の画面を開いたり、別ウィンドウに切り替えたりすると
+                    <strong>失格</strong>となる可能性があります。
+                    <br />
+                    ・入力エリア以外のコピー操作なども<strong>失格</strong>の対象です。
+                    <br />
+                    ・誤って操作して失格にならないようご注意ください。
+                </p>
+            </div>
+
             <input
                 type="text"
                 placeholder="ユーザーIDを入力してください"
@@ -2215,12 +2229,28 @@ export default Login;
     gap: 10px;
 }
 
+.noticeContainer {
+    width: 680px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 20px;
+    font-size: 0.9em;
+    color: #856404;
+    line-height: 1.4;
+}
+
 @media (max-width: 600px) {
     .userIdInput {
         width: 80%;
     }
 
     .buttonGroup {
+        width: 80%;
+    }
+
+    .noticeContainer {
         width: 80%;
     }
 }
@@ -3060,7 +3090,7 @@ export default Timer;
 # 手順15: `client/src/App.tsx` を作成
 
 ```tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { TaskMode } from './utils/types';
 import tasksData from './data/tasks.json';
 import practiceTasksData from './data/practiceTasks.json';
@@ -3080,36 +3110,71 @@ function App() {
 
   const currentTask = mode === 'task' ? tasksData[0] : practiceTasksData[0];
 
-  // タブがhiddenになったら失格
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        if (userId && mode === 'task') {
-          setDisqualified(true);
-          fetch('/api/disqualify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId }),
-          });
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [userId, mode]);
-
-  const handleTimeUp = () => {
-    setDisqualified(true);
-    setRemainingTime(0);
-    if (userId && mode === 'task') {
+  /**
+   * 失格処理をまとめた関数
+   * - stateが変わるたびに再生成されないよう useCallback を使用
+   */
+  const handleDisqualification = useCallback(() => {
+    if (userId && mode === 'task' && !completed) {
+      setDisqualified(true);
       fetch('/api/disqualify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
     }
+  }, [userId, mode, completed]);
+
+  // タブが hidden になったら失格
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleDisqualification();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [handleDisqualification]);
+
+  // ウィンドウがblur（フォーカスを失った）ときに失格
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      handleDisqualification();
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [handleDisqualification]);
+
+  // コピー操作が行われたときに失格
+  useEffect(() => {
+    const handleCopy = (e: ClipboardEvent) => {
+      // もしコピーがMonacoEditor（.monaco-editor）内で発生した場合は失格にしない
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.monaco-editor')) {
+        // MonacoEditor内でのコピーは許可
+        return;
+      }
+
+      // それ以外（Monaco以外の場所でのコピー）は失格とする
+      handleDisqualification();
+    };
+
+    document.addEventListener('copy', handleCopy);
+    return () => {
+      document.removeEventListener('copy', handleCopy);
+    };
+  }, [handleDisqualification]);
+
+  const handleTimeUp = () => {
+    setDisqualified(true);
+    setRemainingTime(0);
+    handleDisqualification();
   };
 
   const switchModeToTask = () => {

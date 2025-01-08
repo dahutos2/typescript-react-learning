@@ -24,6 +24,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     return (
         <div className={styles.loginContainer}>
             <h2 className={styles.loginTitle}>ようこそ！</h2>
+
+            <div className={styles.noticeContainer}>
+                <p>
+                    【注意事項】
+                    <br />
+                    ・本番中は他の画面を開いたり、別ウィンドウに切り替えたりすると
+                    <strong>失格</strong>となる可能性があります。
+                    <br />
+                    ・入力エリア以外のコピー操作なども<strong>失格</strong>の対象です。
+                    <br />
+                    ・誤って操作して失格にならないようご注意ください。
+                </p>
+            </div>
+
             <input
                 type="text"
                 placeholder="ユーザーIDを入力してください"

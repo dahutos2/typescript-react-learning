@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { TaskMode } from './utils/types';
 import tasksData from './data/tasks.json';
 import practiceTasksData from './data/practiceTasks.json';
@@ -18,36 +18,71 @@ function App() {
 
   const currentTask = mode === 'task' ? tasksData[0] : practiceTasksData[0];
 
-  // タブがhiddenになったら失格
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        if (userId && mode === 'task') {
-          setDisqualified(true);
-          fetch('/api/disqualify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId }),
-          });
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [userId, mode]);
-
-  const handleTimeUp = () => {
-    setDisqualified(true);
-    setRemainingTime(0);
-    if (userId && mode === 'task') {
+  /**
+   * 失格処理をまとめた関数
+   * - stateが変わるたびに再生成されないよう useCallback を使用
+   */
+  const handleDisqualification = useCallback(() => {
+    if (userId && mode === 'task' && !completed) {
+      setDisqualified(true);
       fetch('/api/disqualify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
     }
+  }, [userId, mode, completed]);
+
+  // タブが hidden になったら失格
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleDisqualification();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [handleDisqualification]);
+
+  // ウィンドウがblur（フォーカスを失った）ときに失格
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      handleDisqualification();
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [handleDisqualification]);
+
+  // コピー操作が行われたときに失格
+  useEffect(() => {
+    const handleCopy = (e: ClipboardEvent) => {
+      // もしコピーがMonacoEditor（.monaco-editor）内で発生した場合は失格にしない
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.monaco-editor')) {
+        // MonacoEditor内でのコピーは許可
+        return;
+      }
+
+      // それ以外（Monaco以外の場所でのコピー）は失格とする
+      handleDisqualification();
+    };
+
+    document.addEventListener('copy', handleCopy);
+    return () => {
+      document.removeEventListener('copy', handleCopy);
+    };
+  }, [handleDisqualification]);
+
+  const handleTimeUp = () => {
+    setDisqualified(true);
+    setRemainingTime(0);
+    handleDisqualification();
   };
 
   const switchModeToTask = () => {
