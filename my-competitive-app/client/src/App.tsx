@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { TaskMode } from './utils/types';
+import { Config, TaskMode } from './utils/types';
 import tasksData from './data/tasks.json';
 import practiceTasksData from './data/practiceTasks.json';
 import Timer from './components/Timer';
@@ -15,8 +15,20 @@ function App() {
   const [userId, setUserId] = useState<string | null>(null);
   const [mode, setMode] = useState<TaskMode | null>(null);
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
+  const [config, setConfig] = useState<Config | null>(null);
 
-  const currentTask = mode === 'task' ? tasksData[0] : practiceTasksData[0];
+  useEffect(() => {
+    fetch('/config.json')
+      .then(response => response.json())
+      .then((data: Config) => {
+        setConfig(data);
+      })
+      .catch(err => {
+        console.error('Failed to load config.json', err);
+      });
+  }, []);
+
+  const currentTask = mode === 'task' ? tasksData[config?.taskIndex ?? 0] : practiceTasksData[0];
 
   /**
    * 失格処理をまとめた関数

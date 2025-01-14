@@ -150,9 +150,15 @@ npm init -y
     "server:build": "tsc -p ./server/tsconfig.json",
     "server:start": "node ./dist/server/server.js",
     "server:dev": "concurrently \"npm run server:build\" \"npm run server:start\"",
-    "client:start": "cd client && npm start",
-    "analysis:start": "cd code-analysis-server/CodeAnalysisServer && dotnet run",
-    "dev": "concurrently \"npm run analysis:start\" \"npm run server:dev\" \"npm run client:start\""
+    "client:build": "cd client && npm run build",
+    "client:dev": "cd client && npm start",
+    "client:release": "cd client && npx serve -s build -l 3000",
+    "analysis:dev": "cd code-analysis-server/CodeAnalysisServer && dotnet run",
+    "analysis:build": "cd code-analysis-server/CodeAnalysisServer && dotnet build -c Release",
+    "analysis:release": "cd code-analysis-server/CodeAnalysisServer && dotnet run -c Release",
+    "dev": "concurrently \"npm run analysis:dev\" \"npm run server:dev\" \"npm run client:dev\"",
+    "build": "npm run server:build && npm run client:build && npm run analysis:build",
+    "release": "concurrently \"npm run analysis:release\" \"npm run server:start\" \"npm run client:release\""
   },
   "dependencies": {
     "axios": "^1.7.9",
@@ -1110,6 +1116,10 @@ pre {
 export type TaskMode = 'task' | 'practice';
 export type LangOption = 'csharp' | 'typescript';
 export type OutputStatus = 'error' | 'failure' | 'success';
+
+export interface Config {
+    taskIndex: number;
+}
 
 export interface TestCase {
     input: string;
@@ -3091,7 +3101,7 @@ export default Timer;
 
 ```tsx
 import React, { useEffect, useState, useCallback } from 'react';
-import { TaskMode } from './utils/types';
+import { Config, TaskMode } from './utils/types';
 import tasksData from './data/tasks.json';
 import practiceTasksData from './data/practiceTasks.json';
 import Timer from './components/Timer';
@@ -3107,8 +3117,20 @@ function App() {
   const [userId, setUserId] = useState<string | null>(null);
   const [mode, setMode] = useState<TaskMode | null>(null);
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
+  const [config, setConfig] = useState<Config | null>(null);
 
-  const currentTask = mode === 'task' ? tasksData[0] : practiceTasksData[0];
+  useEffect(() => {
+    fetch('/config.json')
+      .then(response => response.json())
+      .then((data: Config) => {
+        setConfig(data);
+      })
+      .catch(err => {
+        console.error('Failed to load config.json', err);
+      });
+  }, []);
+
+  const currentTask = mode === 'task' ? tasksData[config?.taskIndex ?? 0] : practiceTasksData[0];
 
   /**
    * 失格処理をまとめた関数
@@ -3403,7 +3425,17 @@ code {
 
 ---
 
-# 手順21: インストール完了後の確認
+# 手順21: `client/public/config.json` を作成
+
+```jsonc
+{
+    "taskIndex": 0
+}
+```
+
+---
+
+# 手順22: インストール完了後の確認
 
 現在、`my-competitive-app/client` フォルダ内に  
 - `package.json`, `tsconfig.json`, `public/index.html`, `src/*`  
@@ -3411,7 +3443,7 @@ code {
 
 ---
 
-# 手順22: 依存関係のインストール
+# 手順23: 依存関係のインストール
 
 ```bash
 # まず ルートに戻って
@@ -3435,7 +3467,7 @@ cd ..
 
 ---
 
-# 手順23: `code-analysis-server` プロジェクトの初期化
+# 手順24: `code-analysis-server` プロジェクトの初期化
 
 ```bash
 # ルートディレクトリに移動
@@ -3451,7 +3483,7 @@ dotnet new webapi -n CodeAnalysisServer
 
 ---
 
-# 手順24: `code-analysis-server/CodeAnalysisServer/CodeAnalysisServer.csproj` の更新
+# 手順25: `code-analysis-server/CodeAnalysisServer/CodeAnalysisServer.csproj` の更新
 
 `CodeAnalysisServer.csproj`を以下の内容に置き換えます。これは、必要なパッケージ参照を含むプロジェクトファイルです。
 
@@ -3482,7 +3514,7 @@ dotnet new webapi -n CodeAnalysisServer
 
 ---
 
-# 手順25: ソリューションにプロジェクトを追加
+# 手順26: ソリューションにプロジェクトを追加
 
 ```bash
 # ルートディレクトリに戻る
@@ -3497,7 +3529,7 @@ dotnet sln CodeAnalysisServer.sln add code-analysis-server/CodeAnalysisServer/Co
 
 ---
 
-# 手順26: 必要なフォルダとファイルの作成
+# 手順27: 必要なフォルダとファイルの作成
 
 `CodeAnalysisServer`プロジェクト内に必要なフォルダ構造を作成します。
 
@@ -3516,7 +3548,7 @@ mkdir Workspace
 
 ---
 
-# 手順27: `code-analysis-server/CodeAnalysisServer/Api/Enums/CodeCheckSeverity.cs` を作成
+# 手順28: `code-analysis-server/CodeAnalysisServer/Api/Enums/CodeCheckSeverity.cs` を作成
 
 ```cs
 namespace CodeAnalysisServer.Api.Enums
@@ -3534,7 +3566,7 @@ namespace CodeAnalysisServer.Api.Enums
 
 ---
 
-# 手順28: `code-analysis-server/CodeAnalysisServer/Api/Interfaces` フォルダ内のインターフェースを作成
+# 手順29: `code-analysis-server/CodeAnalysisServer/Api/Interfaces` フォルダ内のインターフェースを作成
 
 各インターフェースファイルを作成し、以下の内容を記述します。
 
@@ -3667,7 +3699,7 @@ namespace CodeAnalysisServer.Api.Interfaces
 
 ---
 
-# 手順29: `code-analysis-server/CodeAnalysisServer/Api/Requests` フォルダ内のリクエストクラスを作成
+# 手順30: `code-analysis-server/CodeAnalysisServer/Api/Requests` フォルダ内のリクエストクラスを作成
 
 各リクエストファイルを作成し、以下の内容を記述します。
 
@@ -3755,7 +3787,7 @@ namespace CodeAnalysisServer.Api.Requests
 
 ---
 
-# 手順30: `code-analysis-server/CodeAnalysisServer/Api/Responses` フォルダ内のレスポンスクラスを作成
+# 手順31: `code-analysis-server/CodeAnalysisServer/Api/Responses` フォルダ内のレスポンスクラスを作成
 
 各レスポンスファイルを作成し、以下の内容を記述します。
 
@@ -3869,7 +3901,7 @@ namespace CodeAnalysisServer.Api.Responses
 
 ---
 
-# 手順31: `code-analysis-server/CodeAnalysisServer/Controllers` フォルダ内のコントローラーを作成
+# 手順32: `code-analysis-server/CodeAnalysisServer/Controllers` フォルダ内のコントローラーを作成
 
 各コントローラーファイルを作成し、以下の内容を記述します。
 
@@ -4166,7 +4198,7 @@ namespace CodeAnalysisServer.Controllers
 
 ---
 
-# 手順32: `code-analysis-server/CodeAnalysisServer/Properties/launchSettings.json` を編集
+# 手順33: `code-analysis-server/CodeAnalysisServer/Properties/launchSettings.json` を編集
 
 既に存在する`Properties/launchSettings.json`を開き、必要に応じて編集します。
 基本的には以下のようになっていますが、ポート番号やその他の設定を調整してください。
@@ -4221,7 +4253,7 @@ namespace CodeAnalysisServer.Controllers
 
 ---
 
-# 手順33: `code-analysis-server/CodeAnalysisServer/Services` フォルダ内のサービスクラスを作成
+# 手順34: `code-analysis-server/CodeAnalysisServer/Services` フォルダ内のサービスクラスを作成
 
 各サービスファイルを作成し、以下の内容を記述します。
 
@@ -5102,7 +5134,7 @@ namespace CodeAnalysisServer.Services
 
 ---
 
-# 手順34: `code-analysis-server/CodeAnalysisServer/Workspaces` フォルダ内のクラスを作成
+# 手順35: `code-analysis-server/CodeAnalysisServer/Workspaces` フォルダ内のクラスを作成
 
 ## CompletionWorkspace.cs
 
@@ -5172,7 +5204,7 @@ namespace CodeAnalysisServer.Workspaces
 
 ---
 
-# 手順35: `code-analysis-server/CodeAnalysisServer`直下のアプリ設定を設定
+# 手順36: `code-analysis-server/CodeAnalysisServer`直下のアプリ設定を設定
 
 `appsettings.json` と `appsettings.Development.json` を以下のように設定します。
 
@@ -5205,7 +5237,7 @@ namespace CodeAnalysisServer.Workspaces
 
 ---
 
-# 手順36: `code-analysis-server/CodeAnalysisServer/CodeAnalysisServer.http` を作成
+# 手順37: `code-analysis-server/CodeAnalysisServer/CodeAnalysisServer.http` を作成
 
 APIのテスト用にHTTPリクエストを定義する`CodeAnalysisServer.http`ファイルを作成します。
 
@@ -5220,7 +5252,7 @@ Accept: application/json
 
 ---
 
-# 手順37: `code-analysis-server/CodeAnalysisServer/Program.cs` を編集
+# 手順38: `code-analysis-server/CodeAnalysisServer/Program.cs` を編集
 
 `Program.cs` を開き、必要なサービスを登録します。
 以下のように編集します。
@@ -5293,7 +5325,7 @@ await app.RunAsync();
 ```
 ---
 
-# 手順38: `code-analysis-server` の依存関係をインストール
+# 手順39: `code-analysis-server` の依存関係をインストール
 
 ```bash
 # CodeAnalysisServer フォルダ内で
@@ -5302,7 +5334,7 @@ dotnet restore
 
 ---
 
-# 手順39: `code-analysis-server` のビルドと実行
+# 手順40: `code-analysis-server` のビルドと実行
 
 ```bash
 # CodeAnalysisServer フォルダ内でビルド
@@ -5314,7 +5346,7 @@ dotnet run
 
 ---
 
-# 手順40: サーバ起動
+# 手順41: サーバ起動
 
 ```bash
 # 1) ビルド
@@ -5349,7 +5381,7 @@ npm run client:start # clientフォルダのReact dev server
 
 ---
 
-# 手順41: ブラウザでアクセス
+# 手順42: ブラウザでアクセス
 
 - 解析サーバー: `http://localhost:6000`  
 - サーバ: `http://localhost:4000`  

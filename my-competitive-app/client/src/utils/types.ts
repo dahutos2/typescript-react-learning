@@ -2,6 +2,10 @@ export type TaskMode = 'task' | 'practice';
 export type LangOption = 'csharp' | 'typescript';
 export type OutputStatus = 'error' | 'failure' | 'success';
 
+export interface Config {
+    taskIndex: number;
+}
+
 export interface TestCase {
     input: string;
     output: string;
