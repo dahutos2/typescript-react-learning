@@ -63,6 +63,21 @@
                 "input": "12 5\n4 a\n2 p\n3 p\n4 l\n6 e",
                 "output": "1\np\np\na p l\n5\np p e\n7\na p l\np\np\n11\na p p l e",
                 "isPublic": true
+            },
+            {
+                "input": "10 3\n3 buzz\n4 fizz\n6 pop",
+                "output": "1\n2\nbuzz\nfizz\n5\nbuzz pop\n7\nfizz\nbuzz\n10",
+                "isPublic": false
+            },
+            {
+                "input": "8 2\n2 hello\n5 world",
+                "output": "1\nhello\n3\nhello\nworld\nhello\n7\nhello",
+                "isPublic": false
+            },
+            {
+                "input": "7 1\n7 action",
+                "output": "1\n2\n3\n4\n5\n6\naction",
+                "isPublic": false
             }
         ]
     },
@@ -116,6 +131,21 @@
                 "input": "1\n6\n101\n102\n205\n224\n231\n314",
                 "output": "205\n224",
                 "isPublic": true
+            },
+            {
+                "input": "3\n4\n123\n456\n789\n340",
+                "output": "456\n789",
+                "isPublic": false
+            },
+            {
+                "input": "0\n5\n101\n202\n303\n404\n505",
+                "output": "none",
+                "isPublic": false
+            },
+            {
+                "input": "5\n4\n151\n252\n353\n464",
+                "output": "464",
+                "isPublic": false
             }
         ]
     },
@@ -168,6 +198,21 @@
                 "input": "2\n5 10000\n12 10000",
                 "output": "600",
                 "isPublic": true
+            },
+            {
+                "input": "3\n2 500\n13 1500\n25 999",
+                "output": "99",
+                "isPublic": false
+            },
+            {
+                "input": "2\n35 1234\n22 5678",
+                "output": "117",
+                "isPublic": false
+            },
+            {
+                "input": "1\n53 9999",
+                "output": "499",
+                "isPublic": false
             }
         ]
     },
@@ -216,14 +261,24 @@
                 "isPublic": true
             },
             {
-                "input": "1\n30 340",
-                "output": "10",
+                "input": "7 3\n4\n7 1\n7 4\n5 3\n10 1",
+                "output": "Low\nHigh\nHigh\nLow",
                 "isPublic": true
             },
             {
-                "input": "7 3\n4\n7 1\n7 4\n5 3\n10 1",
-                "output": "600\nLow\nHigh\nHigh\nLow",
-                "isPublic": true
+                "input": "7 2\n3\n8 3\n7 1\n6 4",
+                "output": "Low\nLow\nHigh",
+                "isPublic": false
+            },
+            {
+                "input": "4 4\n2\n4 5\n4 3",
+                "output": "High\nLow",
+                "isPublic": false
+            },
+            {
+                "input": "10 1\n3\n10 2\n9 4\n10 3",
+                "output": "High\nHigh\nHigh",
+                "isPublic": false
             }
         ]
     },
@@ -275,6 +330,21 @@
                 "input": "4\n3\n4\n5\n6",
                 "output": "neither\nnearly\nneither\nperfect",
                 "isPublic": true
+            },
+            {
+                "input": "2\n496\n15",
+                "output": "perfect\nneither",
+                "isPublic": false
+            },
+            {
+                "input": "3\n16\n17\n18",
+                "output": "nearly\nneither\nneither",
+                "isPublic": false
+            },
+            {
+                "input": "3\n6\n8\n20",
+                "output": "perfect\nnearly\nneither",
+                "isPublic": false
             }
         ]
     },
@@ -335,6 +405,21 @@
                 "input": "7 8 7 7",
                 "output": "164",
                 "isPublic": true
+            },
+            {
+                "input": "1 2 3 4",
+                "output": "73",
+                "isPublic": false
+            },
+            {
+                "input": "9 9 1 1",
+                "output": "182",
+                "isPublic": false
+            },
+            {
+                "input": "5 2 8 3",
+                "output": "135",
+                "isPublic": false
             }
         ]
     },
@@ -395,6 +480,21 @@
                 "input": "4 2\n12\n8\n16\n10",
                 "output": "1:******..\n2:****....\n3:********\n4:*****...",
                 "isPublic": true
+            },
+            {
+                "input": "3 3\n3\n9\n6",
+                "output": "1:*..\n2:***\n3:**.",
+                "isPublic": false
+            },
+            {
+                "input": "2 4\n8\n20",
+                "output": "1:**...\n2:*****",
+                "isPublic": false
+            },
+            {
+                "input": "4 10\n10\n30\n20\n40",
+                "output": "1:*...\n2:***.\n3:**..\n4:****",
+                "isPublic": false
             }
         ]
     },
@@ -441,6 +541,21 @@
                 "input": "TicTacToe",
                 "output": "+++++++++++\n+TicTacToe+\n+++++++++++",
                 "isPublic": true
+            },
+            {
+                "input": "Hello",
+                "output": "+++++++\n+Hello+\n+++++++",
+                "isPublic": false
+            },
+            {
+                "input": "A",
+                "output": "+++\n+A+\n+++",
+                "isPublic": false
+            },
+            {
+                "input": "OpenAI",
+                "output": "++++++++\n+OpenAI+\n++++++++",
+                "isPublic": false
             }
         ]
     },
@@ -484,6 +599,21 @@
                 "input": "69 87",
                 "output": "Draw",
                 "isPublic": true
+            },
+            {
+                "input": "55 46",
+                "output": "Draw",
+                "isPublic": false
+            },
+            {
+                "input": "88 76",
+                "output": "Bob",
+                "isPublic": false
+            },
+            {
+                "input": "23 17",
+                "output": "Alice",
+                "isPublic": false
             }
         ]
     },
@@ -540,6 +670,21 @@
                 "input": "3\n-5\n0\n5",
                 "output": "平均気温: 0.0\n最高気温: 5\n最低気温: -5\n平均を超えた日数: 1",
                 "isPublic": true
+            },
+            {
+                "input": "4\n10\n10\n10\n10",
+                "output": "平均気温: 10.0\n最高気温: 10\n最低気温: 10\n平均を超えた日数: 0",
+                "isPublic": false
+            },
+            {
+                "input": "6\n5\n15\n10\n20\n25\n30",
+                "output": "平均気温: 17.5\n最高気温: 30\n最低気温: 5\n平均を超えた日数: 3",
+                "isPublic": false
+            },
+            {
+                "input": "3\n-10\n0\n10",
+                "output": "平均気温: 0.0\n最高気温: 10\n最低気温: -10\n平均を超えた日数: 1",
+                "isPublic": false
             }
         ]
     },
@@ -605,6 +750,21 @@
                 "input": "2\nOUT Peach 5\nOUT Cherry 10",
                 "output": "No stock",
                 "isPublic": true
+            },
+            {
+                "input": "4\nIN Milk 100\nOUT Milk 50\nOUT Milk 60\nIN Bread 30",
+                "output": "Bread 30\nMilk 50",
+                "isPublic": false
+            },
+            {
+                "input": "3\nOUT Egg 10\nIN Egg 5\nOUT Egg 3",
+                "output": "Egg 2",
+                "isPublic": false
+            },
+            {
+                "input": "2\nIN Apple 10\nOUT Apple 10",
+                "output": "No stock",
+                "isPublic": false
             }
         ]
     },
@@ -650,6 +810,21 @@
                 "input": "zzzzzz",
                 "output": "z6",
                 "isPublic": true
+            },
+            {
+                "input": "aabccc",
+                "output": "a2b1c3",
+                "isPublic": false
+            },
+            {
+                "input": "hhhhhhhhh",
+                "output": "h9",
+                "isPublic": false
+            },
+            {
+                "input": "abbbaacc",
+                "output": "a1b3a2c2",
+                "isPublic": false
             }
         ]
     },
@@ -702,6 +877,21 @@
                 "input": "2 2\nSG\n##",
                 "output": "Yes",
                 "isPublic": true
+            },
+            {
+                "input": "3 3\nS#.\n.#.\n..G",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "3 3\nS##\n###\n##G",
+                "output": "No",
+                "isPublic": false
+            },
+            {
+                "input": "2 2\nSG\n##",
+                "output": "Yes",
+                "isPublic": false
             }
         ]
     },
@@ -756,6 +946,21 @@
                 "input": "2021 11",
                 "output": "30",
                 "isPublic": true
+            },
+            {
+                "input": "2021 1",
+                "output": "31",
+                "isPublic": false
+            },
+            {
+                "input": "2100 2",
+                "output": "28",
+                "isPublic": false
+            },
+            {
+                "input": "2004 2",
+                "output": "29",
+                "isPublic": false
             }
         ]
     },
@@ -802,6 +1007,21 @@
                 "input": "4 10\n1 2 3 4",
                 "output": "Yes",
                 "isPublic": true
+            },
+            {
+                "input": "3 5\n1 2 3",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "4 15\n5 5 5 5",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "4 7\n2 2 2 2",
+                "output": "No",
+                "isPublic": false
             }
         ]
     },
@@ -854,6 +1074,21 @@
                 "input": "Racecar\nracecaR",
                 "output": "No",
                 "isPublic": true
+            },
+            {
+                "input": "abcd\ndcba",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "Python\nnohtyP",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "Test\nTset",
+                "output": "No",
+                "isPublic": false
             }
         ]
     },
@@ -896,6 +1131,26 @@
                 "input": "2\n15\n8",
                 "output": "4\n1",
                 "isPublic": true
+            },
+            {
+                "input": "1\n1023",
+                "output": "10",
+                "isPublic": true
+            },
+            {
+                "input": "2\n15\n8",
+                "output": "4\n1",
+                "isPublic": false
+            },
+            {
+                "input": "1\n1",
+                "output": "1",
+                "isPublic": false
+            },
+            {
+                "input": "3\n2\n3\n4",
+                "output": "1\n2\n1",
+                "isPublic": false
             }
         ]
     },
@@ -942,6 +1197,21 @@
                 "input": "4 0\n7 8 9 10",
                 "output": "7 8 9 10",
                 "isPublic": true
+            },
+            {
+                "input": "6 3\n10 20 30 40 50 60",
+                "output": "40 50 60 10 20 30",
+                "isPublic": false
+            },
+            {
+                "input": "5 5\n1 2 3 4 5",
+                "output": "1 2 3 4 5",
+                "isPublic": false
+            },
+            {
+                "input": "4 1\n100 200 300 400",
+                "output": "400 100 200 300",
+                "isPublic": false
             }
         ]
     },
@@ -987,6 +1257,21 @@
                 "input": "ABCDEF\nFBDAMN",
                 "output": "2",
                 "isPublic": true
+            },
+            {
+                "input": "ABCD\nACBAD",
+                "output": "3",
+                "isPublic": false
+            },
+            {
+                "input": "XMJYAUZ\nMZJAWXU",
+                "output": "4",
+                "isPublic": false
+            },
+            {
+                "input": "ABC\nABC",
+                "output": "3",
+                "isPublic": false
             }
         ]
     },
@@ -1036,6 +1321,21 @@
                 "input": "0\n5\n<<\n<<\n>>\n>>\n<<",
                 "output": "0",
                 "isPublic": true
+            },
+            {
+                "input": "10\n4\n<<\n<<\n>>\n<<",
+                "output": "40",
+                "isPublic": false
+            },
+            {
+                "input": "-16\n3\n>>\n>>\n<<",
+                "output": "-8",
+                "isPublic": false
+            },
+            {
+                "input": "0\n2\n<<\n>>",
+                "output": "0",
+                "isPublic": false
             }
         ]
     },
@@ -1090,6 +1390,21 @@
                 "input": "3 3 3\n1 0 2\n-1 3 1\n4 2 0\n3 1 2\n2 1 0\n1 4 3",
                 "output": "5 9 7\n8 14 5\n13 9 8",
                 "isPublic": true
+            },
+            {
+                "input": "2 2 2\n1 2\n3 4\n5 6\n7 8",
+                "output": "19 22\n43 50",
+                "isPublic": false
+            },
+            {
+                "input": "1 3 1\n2 3 4\n1\n0\n5",
+                "output": "22",
+                "isPublic": false
+            },
+            {
+                "input": "3 2 3\n1 0\n0 1\n1 1\n2 3 4\n5 6 7",
+                "output": "2 3 4\n5 6 7\n7 9 11",
+                "isPublic": false
             }
         ]
     },
@@ -1136,6 +1451,21 @@
                 "input": "1\nteststring\ntesting",
                 "output": "No",
                 "isPublic": true
+            },
+            {
+                "input": "abracadabra\ncad",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "hello\nworld",
+                "output": "No",
+                "isPublic": false
+            },
+            {
+                "input": "abcdef\nabc",
+                "output": "Yes",
+                "isPublic": false
             }
         ]
     },
@@ -1181,6 +1511,21 @@
                 "input": "4 2\n1 2\n3 4\n1 4",
                 "output": "No",
                 "isPublic": true
+            },
+            {
+                "input": "4 3\n1 2\n2 3\n3 4\n1 4",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "5 2\n1 2\n4 5\n2 5",
+                "output": "No",
+                "isPublic": false
+            },
+            {
+                "input": "3 0\n1 1",
+                "output": "Yes",
+                "isPublic": false
             }
         ]
     },
@@ -1224,6 +1569,21 @@
                 "input": "5 5\n1 2 3 4 5\n1 2 3 4 5",
                 "output": "1 1 2 2 3 3 4 4 5 5",
                 "isPublic": true
+            },
+            {
+                "input": "2 3\n-5 0\n-1 2 3",
+                "output": "-5 -1 0 2 3",
+                "isPublic": false
+            },
+            {
+                "input": "3 2\n1 4 7\n2 5",
+                "output": "1 2 4 5 7",
+                "isPublic": false
+            },
+            {
+                "input": "0 4\n\n10 20 30 40",
+                "output": "10 20 30 40",
+                "isPublic": false
             }
         ]
     },
@@ -1270,6 +1630,21 @@
                 "input": "1\n3",
                 "output": "6",
                 "isPublic": true
+            },
+            {
+                "input": "1\n0",
+                "output": "1",
+                "isPublic": false
+            },
+            {
+                "input": "1\n7",
+                "output": "5040",
+                "isPublic": false
+            },
+            {
+                "input": "2\n3\n4",
+                "output": "6\n24",
+                "isPublic": false
             }
         ]
     },
@@ -1312,6 +1687,21 @@
                 "input": "4 100 200\n50 150 250 175",
                 "output": "150 175",
                 "isPublic": true
+            },
+            {
+                "input": "5 0 10\n-5 0 5 10 15",
+                "output": "0 5 10",
+                "isPublic": false
+            },
+            {
+                "input": "4 200 300\n100 250 300 350",
+                "output": "250 300",
+                "isPublic": false
+            },
+            {
+                "input": "3 -10 0\n-20 -10 0",
+                "output": "-10 0",
+                "isPublic": false
             }
         ]
     },
@@ -1357,6 +1747,21 @@
                 "input": "1\n03:45 PM",
                 "output": "15:45",
                 "isPublic": true
+            },
+            {
+                "input": "1\n12:30 AM",
+                "output": "00:30",
+                "isPublic": false
+            },
+            {
+                "input": "1\n11:59 PM",
+                "output": "23:59",
+                "isPublic": false
+            },
+            {
+                "input": "2\n06:15 AM\n12:00 PM",
+                "output": "06:15\n12:00",
+                "isPublic": false
             }
         ]
     },
@@ -1399,6 +1804,21 @@
                 "input": "4\n10 20 30 40",
                 "output": "30",
                 "isPublic": true
+            },
+            {
+                "input": "3\n-10 0 10",
+                "output": "20",
+                "isPublic": false
+            },
+            {
+                "input": "4\n100 50 75 125",
+                "output": "75",
+                "isPublic": false
+            },
+            {
+                "input": "2\n7 7",
+                "output": "0",
+                "isPublic": false
             }
         ]
     },
@@ -1450,6 +1870,21 @@
                 "input": "3 1\nHeidi 20\nIvan 20\nJudy 20\n15 25",
                 "output": "Heidi Ivan Judy",
                 "isPublic": true
+            },
+            {
+                "input": "3 2\nAnna 20\nBob 25\nCara 22\n20 22\n25 30",
+                "output": "Anna Cara\nBob",
+                "isPublic": false
+            },
+            {
+                "input": "2 1\nDavid 40\nEve 35\n30 39",
+                "output": "Eve",
+                "isPublic": false
+            },
+            {
+                "input": "3 1\nZara 50\nYanni 50\nXander 50\n50 50",
+                "output": "Xander Yanni Zara",
+                "isPublic": false
             }
         ]
     },
@@ -1496,6 +1931,21 @@
                 "input": "6 4\n-5 -3 0 1 4 6\n0\n-3\n5\n6",
                 "output": "2\n1\n-1\n5",
                 "isPublic": true
+            },
+            {
+                "input": "4 3\n2 4 6 8\n2\n5\n8",
+                "output": "0\n-1\n3",
+                "isPublic": false
+            },
+            {
+                "input": "3 2\n-10 0 10\n-10\n0",
+                "output": "0\n1",
+                "isPublic": false
+            },
+            {
+                "input": "5 2\n1 3 5 7 9\n4\n7",
+                "output": "-1\n3",
+                "isPublic": false
             }
         ]
     },
@@ -1543,6 +1993,21 @@
                 "input": "2 6",
                 "output": "#.#.#.\n.#.#.#",
                 "isPublic": true
+            },
+            {
+                "input": "5 5",
+                "output": "#.#.#\n.#.#.\n#.#.#\n.#.#.\n#.#.#",
+                "isPublic": false
+            },
+            {
+                "input": "2 3",
+                "output": "#.#\n.#.",
+                "isPublic": false
+            },
+            {
+                "input": "4 4",
+                "output": "#.#.\n.#.#\n#.#.\n.#.#",
+                "isPublic": false
             }
         ]
     },
@@ -1588,6 +2053,21 @@
                 "input": "5\nMjqqt, Btwqi!",
                 "output": "Hello, World!",
                 "isPublic": true
+            },
+            {
+                "input": "2\nCde",
+                "output": "Abc",
+                "isPublic": false
+            },
+            {
+                "input": "4\nEfgh!",
+                "output": "Abcd!",
+                "isPublic": false
+            },
+            {
+                "input": "1\nHello, World!",
+                "output": "Gdkkn, Vnqkc!",
+                "isPublic": false
             }
         ]
     },
@@ -1632,6 +2112,21 @@
                 "input": "abcdefg\nhij",
                 "output": "0",
                 "isPublic": true
+            },
+            {
+                "input": "aaaaa\naaa",
+                "output": "3",
+                "isPublic": false
+            },
+            {
+                "input": "abcabcabc\nabc",
+                "output": "3",
+                "isPublic": false
+            },
+            {
+                "input": "ababab\naba",
+                "output": "2",
+                "isPublic": false
             }
         ]
     },
@@ -1677,6 +2172,21 @@
                 "input": "5 3 4 6 7 8 9 1 2\n6 7 2 1 9 5 3 4 8\n1 9 8 3 4 2 5 6 7\n8 5 9 7 6 1 4 2 3\n4 2 6 8 5 3 7 9 1\n7 1 3 9 2 4 8 5 6\n9 6 1 5 3 7 2 8 4\n2 8 7 4 1 9 6 3 5\n3 4 5 2 8 6 1 7 0",
                 "output": "Invalid",
                 "isPublic": true
+            },
+            {
+                "input": "1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8",
+                "output": "Valid",
+                "isPublic": false
+            },
+            {
+                "input": "1 1 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8",
+                "output": "Invalid",
+                "isPublic": false
+            },
+            {
+                "input": "1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 8 7",
+                "output": "Invalid",
+                "isPublic": false
             }
         ]
     },
@@ -1733,6 +2243,21 @@
                 "input": "1 1\nPanda 30\nBambooForest 25\n1\nBambooForest Panda",
                 "output": "No",
                 "isPublic": true
+            },
+            {
+                "input": "2 2\nElephant 80\nMonkey 30\nForest 100\nJungle 50\n3\nForest Elephant\nForest Monkey\nJungle Monkey",
+                "output": "Yes\nNo\nYes",
+                "isPublic": false
+            },
+            {
+                "input": "1 1\nLion 60\nSavannah 50\n1\nSavannah Lion",
+                "output": "No",
+                "isPublic": false
+            },
+            {
+                "input": "3 2\nTiger 40\nBear 70\nDeer 20\nJungle 100\nMeadow 50\n4\nJungle Tiger\nJungle Bear\nMeadow Deer\nJungle Deer",
+                "output": "Yes\nNo\nYes\nYes",
+                "isPublic": false
             }
         ]
     },
@@ -1778,6 +2303,21 @@
                 "input": "4 4\n1 2 2\n2 3 2\n3 4 2\n1 4 10\n1 4",
                 "output": "6",
                 "isPublic": true
+            },
+            {
+                "input": "3 3\n1 2 5\n2 3 7\n1 3 15\n1 3",
+                "output": "12",
+                "isPublic": false
+            },
+            {
+                "input": "4 2\n1 2 10\n3 4 20\n1 4",
+                "output": "-1",
+                "isPublic": false
+            },
+            {
+                "input": "5 4\n1 2 3\n2 3 4\n3 4 5\n4 5 6\n1 5",
+                "output": "18",
+                "isPublic": false
             }
         ]
     },
@@ -1817,6 +2357,21 @@
                 "input": "2000 4 31",
                 "output": "No",
                 "isPublic": true
+            },
+            {
+                "input": "2021 12 31",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "2001 2 29",
+                "output": "No",
+                "isPublic": false
+            },
+            {
+                "input": "1999 11 31",
+                "output": "No",
+                "isPublic": false
             }
         ]
     },
@@ -1860,6 +2415,21 @@
                 "input": "4 150\n50 50 50 50",
                 "output": "150",
                 "isPublic": true
+            },
+            {
+                "input": "4 120\n30 40 50 60",
+                "output": "120",
+                "isPublic": false
+            },
+            {
+                "input": "3 90\n20 30 50",
+                "output": "80",
+                "isPublic": false
+            },
+            {
+                "input": "5 200\n60 60 60 60 60",
+                "output": "180",
+                "isPublic": false
             }
         ]
     },
@@ -1891,19 +2461,34 @@
         "timeLimitSec": 1800,
         "testCases": [
             {
-                "input": "listen",
-                "output": "silent",
+                "input": "listen\nsilent",
+                "output": "Yes",
                 "isPublic": true
             },
             {
-                "input": "Hello",
-                "output": "Olelh",
+                "input": "Hello\nOlelh",
+                "output": "No",
                 "isPublic": true
             },
             {
-                "input": "Test",
-                "output": "Taste",
+                "input": "T#st\nT st#",
+                "output": "No",
                 "isPublic": true
+            },
+            {
+                "input": "triangle\ngrintel",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "apple\npapel",
+                "output": "Yes",
+                "isPublic": false
+            },
+            {
+                "input": "rat\ncar",
+                "output": "No",
+                "isPublic": false
             }
         ]
     },
@@ -1950,6 +2535,21 @@
                 "input": "042100005264",
                 "output": "Valid",
                 "isPublic": true
+            },
+            {
+                "input": "123456789018",
+                "output": "Valid",
+                "isPublic": false
+            },
+            {
+                "input": "987654321092",
+                "output": "Valid",
+                "isPublic": false
+            },
+            {
+                "input": "123456789019",
+                "output": "Invalid",
+                "isPublic": false
             }
         ]
     },
@@ -1990,6 +2590,21 @@
                 "input": "100 10",
                 "output": "10 10 10 10 10 10 10 10 10 10",
                 "isPublic": true
+            },
+            {
+                "input": "12 5",
+                "output": "3 3 2 2 2",
+                "isPublic": false
+            },
+            {
+                "input": "7 7",
+                "output": "1 1 1 1 1 1 1",
+                "isPublic": false
+            },
+            {
+                "input": "20 3",
+                "output": "7 7 6",
+                "isPublic": false
             }
         ]
     },
@@ -2040,6 +2655,21 @@
                 "input": "3\nSapporo Tokyo 06:00\nSapporo Tokyo 07:00\nSapporo Tokyo 08:00\n2\nSapporo Tokyo 07:30\nSapporo Tokyo 08:00",
                 "output": "08:00\n08:00",
                 "isPublic": true
+            },
+            {
+                "input": "3\nCityA CityB 08:00\nCityA CityB 09:30\nCityA CityB 10:00\n1\nCityA CityB 09:00",
+                "output": "09:30",
+                "isPublic": false
+            },
+            {
+                "input": "2\nMetroX MetroY 12:15\nMetroX MetroY 13:45\n1\nMetroX MetroY 14:00",
+                "output": "No available train",
+                "isPublic": false
+            },
+            {
+                "input": "4\nAlpha Beta 06:00\nAlpha Beta 06:30\nAlpha Beta 07:00\nGamma Delta 08:00\n1\nAlpha Beta 06:30",
+                "output": "06:30",
+                "isPublic": false
             }
         ]
     },
@@ -2084,6 +2714,21 @@
                 "input": "4 100\nINR 25\nCNY 30\nKRW 20\nMXN 10",
                 "output": "4",
                 "isPublic": true
+            },
+            {
+                "input": "3 80\nUSD 40\nEUR 50\nJPY 20",
+                "output": "2",
+                "isPublic": false
+            },
+            {
+                "input": "4 200\nGBP 60\nEUR 70\nUSD 80\nJPY 30",
+                "output": "3",
+                "isPublic": false
+            },
+            {
+                "input": "2 50\nAUD 30\nNZD 25",
+                "output": "1",
+                "isPublic": false
             }
         ]
     },
@@ -2134,6 +2779,21 @@
                 "input": "4 4\nFrank 0\nGrace 1 300\nHeidi 2 100 200\nIvan 1 150\n100\n150\n200\n300",
                 "output": "3\n2\n2\n1",
                 "isPublic": true
+            },
+            {
+                "input": "4\nIN Milk 100\nOUT Milk 50\nIN Bread 20\nOUT Milk 60",
+                "output": "Bread 20\nMilk 50",
+                "isPublic": false
+            },
+            {
+                "input": "3\nIN Egg 10\nOUT Egg 5\nOUT Egg 10",
+                "output": "Egg 5",
+                "isPublic": false
+            },
+            {
+                "input": "3\nIN Apple 20\nOUT Apple 20\nOUT Apple 1",
+                "output": "No stock",
+                "isPublic": false
             }
         ]
     },
@@ -2179,6 +2839,21 @@
                 "input": "1\nNo words here!",
                 "output": "here 1\nno 1\nwords 1",
                 "isPublic": true
+            },
+            {
+                "input": "2\nRepeat repeat repeat.\nRepeat repeat.",
+                "output": "repeat 5",
+                "isPublic": false
+            },
+            {
+                "input": "1\nTest, test, test; test.",
+                "output": "test 4",
+                "isPublic": false
+            },
+            {
+                "input": "3\nOne two three.\nTwo three four.\nThree four five.",
+                "output": "three 3\nfour 2\ntwo 2\nfive 1\none 1",
+                "isPublic": false
             }
         ]
     },
@@ -2187,41 +2862,57 @@
         "title": "高速道路の料金計算",
         "description": [
             "あなたは高速道路の料金計算システムを開発しています。",
-            "高速道路の料金は走行距離に基づいて計算されます。",
-            "基本料金は距離に応じて段階的に設定されており、特定の時間帯には割引が適用されます。",
-            "　",
-            "与えられた走行距離と時間帯に基づいて、最終的な料金を計算してください。"
+            "料金は以下の規則に基づいて計算されます：",
+            "1. 基本料金は 500 円です。",
+            "2. 走行距離 D (km) に対して、1 km ごとに 10 円が加算されます。",
+            "3. 走行距離が 100 km を超える場合、超過部分については 1 km あたり 5 円で計算します。",
+            "   （つまり、D が 100 km 以下の場合は料金 = 500 + 10 × D、D が 100 km を超える場合は料金 = 500 + 10 × 100 + 5 × (D − 100)）",
+            "4. さらに、出発時刻 T (0〜23 の整数) が 18, 19, 20, または 21 の場合、全体料金に 10% の割引が適用されます（割引後の料金は端数切り上げ）。",
+            "与えられた走行距離 D と出発時刻 T に基づいて、最終的な料金を計算してください。"
         ],
         "inputDescription": [
-            "入力は以下のフォーマットで与えられます。",
+            "入力は1行で与えられ、次の形式です：",
             "<code>",
             "D T",
             "</code>",
-            "・1行目に走行距離 D (1 ≤ D ≤ 1000) と時間帯 T (1 ≤ T ≤ 24) が半角スペース区切りで与えられます。",
-            "・入力は1行で、入力値最終行の末尾に改行が1つ入ります。"
+            "・D：走行距離 (1 ≤ D ≤ 1000)",
+            "・T：出発時刻（0〜23 の整数）"
         ],
         "outputDescription": [
-            "最終的な料金を整数で出力してください。",
-            "　",
-            "・料金は基本料金に時間帯割引を適用した値です。",
-            "・出力の最後に改行を入れ、余計な文字、空行を含んではいけません。"
+            "最終的な料金（整数）を出力してください。",
+            "※ 出力の最後に改行を入れ、余計な文字や空行を含めないこと。"
         ],
         "timeLimitSec": 1800,
         "testCases": [
             {
                 "input": "150 10",
-                "output": "2250",
+                "output": "1750",
                 "isPublic": true
             },
             {
                 "input": "50 20",
-                "output": "1000",
+                "output": "900",
                 "isPublic": true
             },
             {
                 "input": "300 5",
-                "output": "6000",
+                "output": "2500",
                 "isPublic": true
+            },
+            {
+                "input": "100 19",
+                "output": "1350",
+                "isPublic": false
+            },
+            {
+                "input": "250 20",
+                "output": "2025",
+                "isPublic": false
+            },
+            {
+                "input": "350 18",
+                "output": "2475",
+                "isPublic": false
             }
         ]
     },
@@ -2268,6 +2959,21 @@
                 "input": "4 4 3\nA 5\nB 6\nC 5",
                 "output": "Yes",
                 "isPublic": true
+            },
+            {
+                "input": "3 3 2\nA 5\nB 5",
+                "output": "No",
+                "isPublic": false
+            },
+            {
+                "input": "2 2 2\nA 3\nB 1",
+                "output": "No",
+                "isPublic": false
+            },
+            {
+                "input": "4 4 3\nA 7\nB 4\nC 6",
+                "output": "No",
+                "isPublic": false
             }
         ]
     },
@@ -2318,6 +3024,21 @@
                 "input": "1\nA1!a2@B3#",
                 "output": "Strong",
                 "isPublic": true
+            },
+            {
+                "input": "2\nA!b@c#d$\nAbc12345",
+                "output": "Weak\nWeak",
+                "isPublic": false
+            },
+            {
+                "input": "1\nA1b2C3",
+                "output": "Weak",
+                "isPublic": false
+            },
+            {
+                "input": "2\nA!b@c#d$\nAbc12345",
+                "output": "Weak\nWeak",
+                "isPublic": false
             }
         ]
     },
@@ -2364,6 +3085,21 @@
                 "input": "3 2\n5 0 3\n1\n2",
                 "output": "5\n0",
                 "isPublic": true
+            },
+            {
+                "input": "4 3\n3 3 3 3\n1\n3\n4",
+                "output": "3\n3\n3",
+                "isPublic": false
+            },
+            {
+                "input": "2 2\n0 0\n1\n2",
+                "output": "0\n0",
+                "isPublic": false
+            },
+            {
+                "input": "5 2\n1 2 3 4 5\n3\n5",
+                "output": "3\n5",
+                "isPublic": false
             }
         ]
     },
@@ -2408,6 +3144,21 @@
                 "input": "1\na",
                 "output": "1",
                 "isPublic": true
+            },
+            {
+                "input": "1\ncharacter",
+                "output": "5",
+                "isPublic": false
+            },
+            {
+                "input": "1\nbbbab",
+                "output": "4",
+                "isPublic": false
+            },
+            {
+                "input": "1\nabcde",
+                "output": "1",
+                "isPublic": false
             }
         ]
     },
@@ -2454,6 +3205,21 @@
                 "input": "1\n12:00 11:50",
                 "output": "0.0",
                 "isPublic": true
+            },
+            {
+                "input": "2\n06:00 06:10\n18:00 18:30",
+                "output": "20.0",
+                "isPublic": false
+            },
+            {
+                "input": "3\n07:00 07:05\n08:00 08:00\n09:00 09:15",
+                "output": "6.7",
+                "isPublic": false
+            },
+            {
+                "input": "2\n22:00 22:00\n23:00 22:50",
+                "output": "0.0",
+                "isPublic": false
             }
         ]
     },
@@ -2500,6 +3266,21 @@
                 "input": "2\n14:00 15:00\n14:30 16:00",
                 "output": "1",
                 "isPublic": true
+            },
+            {
+                "input": "3\n08:00 09:00\n09:00 10:00\n10:00 11:00",
+                "output": "3",
+                "isPublic": false
+            },
+            {
+                "input": "4\n09:00 09:30\n09:15 10:00\n10:00 10:30\n10:20 11:00",
+                "output": "2",
+                "isPublic": false
+            },
+            {
+                "input": "5\n08:00 09:00\n08:30 09:30\n09:00 10:00\n09:15 10:15\n10:00 11:00",
+                "output": "3",
+                "isPublic": false
             }
         ]
     },
@@ -2544,6 +3325,21 @@
                 "input": "1\n00:00 1440",
                 "output": "00:00",
                 "isPublic": true
+            },
+            {
+                "input": "2\n10:00 30\n23:50 15",
+                "output": "10:30\n00:05",
+                "isPublic": false
+            },
+            {
+                "input": "1\n12:30 90",
+                "output": "14:00",
+                "isPublic": false
+            },
+            {
+                "input": "3\n01:00 60\n02:30 45\n23:00 120",
+                "output": "02:00\n03:15\n01:00",
+                "isPublic": false
             }
         ]
     },
@@ -2589,6 +3385,21 @@
                 "input": "5 4\nopal topaz garnet amethyst aquamarine\nopal\ntopaz\npearl\namethyst",
                 "output": "1\n1\n0\n1",
                 "isPublic": true
+            },
+            {
+                "input": "3 2\nred red blue\nred\nblue",
+                "output": "2\n1",
+                "isPublic": false
+            },
+            {
+                "input": "2 1\ngreen green\ngreen",
+                "output": "2",
+                "isPublic": false
+            },
+            {
+                "input": "4 3\nblack white black white\nblack\nwhite\ngray",
+                "output": "2\n2\n0",
+                "isPublic": false
             }
         ]
     },
@@ -2638,6 +3449,21 @@
                 "input": "4 3\nAlpha 250\nBeta 150\nGamma 250\nDelta 100\n100 200\n250 250\n50 100",
                 "output": "Beta Delta\nAlpha Gamma\nDelta",
                 "isPublic": true
+            },
+            {
+                "input": "3 2\nTune1 180\nTune2 220\nTune3 200\n150 210\n200 230",
+                "output": "Tune1 Tune3\nTune2 Tune3",
+                "isPublic": false
+            },
+            {
+                "input": "2 1\nSongX 300\nSongY 400\n100 200",
+                "output": "None",
+                "isPublic": false
+            },
+            {
+                "input": "4 2\nBeat1 120\nBeat2 180\nBeat3 240\nBeat4 300\n100 150\n250 350",
+                "output": "Beat1\nBeat4",
+                "isPublic": false
             }
         ]
     },
@@ -2667,7 +3493,7 @@
             "最高気温: H",
             "最低気温: L",
             "平均気温: A",
-            "日数を超えた日: C",
+            "平均を超えた日数: C",
             "</code>",
             "・1行目に最高気温 H を出力してください。",
             "・2行目に最低気温 L を出力してください。",
@@ -2680,18 +3506,33 @@
         "testCases": [
             {
                 "input": "5\n20\n22\n19\n25\n18",
-                "output": "25\n18\n20.8\n2",
+                "output": "最高気温: 25\n最低気温: -518\n平均気温: 20.8\n平均を超えた日数: 2",
                 "isPublic": true
             },
             {
                 "input": "3\n-5\n0\n5",
-                "output": "5\n-5\n0.0\n1",
+                "output": "最高気温: 5\n最低気温: -5\n平均気温: 0.0\n平均を超えた日数: 1",
                 "isPublic": true
             },
             {
                 "input": "4\n30\n25\n35\n20",
-                "output": "35\n20\n27.5\n2",
+                "output": "最高気温: 35\n最低気温: 20\n平均気温: 27.5\n平均を超えた日数: 2",
                 "isPublic": true
+            },
+            {
+                "input": "4\n10\n10\n10\n10",
+                "output": "最高気温: 10\n最低気温: 10\n平均気温: 10.0\n平均を超えた日数: 0",
+                "isPublic": false
+            },
+            {
+                "input": "6\n-2\n0\n2\n4\n6\n8",
+                "output": "最高気温: 8\n最低気温: -2\n平均気温: 3.0\n平均を超えた日数: 3",
+                "isPublic": false
+            },
+            {
+                "input": "3\n15\n25\n35",
+                "output": "最高気温: 35\n最低気温: 15\n平均気温: 25.0\n平均を超えた日数: 1",
+                "isPublic": false
             }
         ]
     },
@@ -2737,6 +3578,21 @@
                 "input": "6 4\n10 20 30 40 50 60\n1 6\n2 5\n3 3\n4 6",
                 "output": "210\n140\n30\n150",
                 "isPublic": true
+            },
+            {
+                "input": "3 2\n5 5 5\n1 2\n2 3",
+                "output": "10\n10",
+                "isPublic": false
+            },
+            {
+                "input": "4 1\n-5 -5 -5 -5\n1 4",
+                "output": "-20",
+                "isPublic": false
+            },
+            {
+                "input": "5 2\n1 2 3 4 5\n2 4\n3 5",
+                "output": "9\n12",
+                "isPublic": false
             }
         ]
     },
@@ -2780,6 +3636,21 @@
                 "input": "1\n1023",
                 "output": "10",
                 "isPublic": true
+            },
+            {
+                "input": "1\n1",
+                "output": "1",
+                "isPublic": false
+            },
+            {
+                "input": "2\n2\n3",
+                "output": "1\n2",
+                "isPublic": false
+            },
+            {
+                "input": "3\n8\n16\n31",
+                "output": "1\n1\n5",
+                "isPublic": false
             }
         ]
     },
@@ -2828,6 +3699,21 @@
                 "input": "1\n15 21",
                 "output": "12000",
                 "isPublic": true
+            },
+            {
+                "input": "1\n8 15",
+                "output": "5000",
+                "isPublic": false
+            },
+            {
+                "input": "1\n12 10",
+                "output": "10000",
+                "isPublic": false
+            },
+            {
+                "input": "1\n10 22",
+                "output": "6000",
+                "isPublic": false
             }
         ]
     },
@@ -2876,6 +3762,21 @@
                 "input": "4\n1000 0 499 501",
                 "output": "1200 0 399 601",
                 "isPublic": true
+            },
+            {
+                "input": "3\n300 300 300",
+                "output": "300 300 300",
+                "isPublic": false
+            },
+            {
+                "input": "4\n250 550 299 750",
+                "output": "200 660 239 900",
+                "isPublic": false
+            },
+            {
+                "input": "2\n400 600",
+                "output": "400 720",
+                "isPublic": false
             }
         ]
     }

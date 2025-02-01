@@ -28,6 +28,8 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
     const [preSubmitActualOutput, setPreSubmitActualOutput] = useState('');
     const [preSubmitErrorMessages, setPreSubmitErrorMessages] = useState('');
 
+    const publicTestCases = task.testCases.filter((tc) => tc.isPublic);
+
     useEffect(() => {
         // 言語が変更された際にデフォルトのコードを設定し、プレテスト結果をクリア
         setUserCode(defaultCodes[language]);
@@ -36,7 +38,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
 
     // 提出前の単一テストケース実行
     const handlePreSubmit = async () => {
-        const selectedTestCase = task.testCases[sampleIndex];
+        const selectedTestCase = publicTestCases[sampleIndex];
         if (!selectedTestCase) {
             setPreSubmitStatus('error');
             setPreSubmitActualOutput('');
@@ -213,7 +215,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
 
             {/* テストケースの詳細表示 */}
             <div className={styles.testCaseDetails}>
-                {task.testCases.map((tc, index) => (
+                {publicTestCases.map((tc, index) => (
                     <div key={`${tc.input}-${index}`} className={styles.individualTestCase}>
                         <div>
                             <strong className={styles.testCaseTitle}>入力例{index + 1}:</strong>
@@ -263,7 +265,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
                             setSampleIndex(Number(e.target.value));
                         }}
                     >
-                        {task.testCases.map((tc, index) => (
+                        {publicTestCases.map((tc, index) => (
                             <option key={`${tc.input}-${index}`} value={index}>
                                 入力例{index + 1}
                             </option>
