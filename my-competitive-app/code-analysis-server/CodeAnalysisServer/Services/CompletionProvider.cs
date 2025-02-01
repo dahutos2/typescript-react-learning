@@ -41,22 +41,43 @@ namespace CodeAnalysisServer.Services
             var syntaxRoot = await document.GetSyntaxRootAsync();
             if (semanticModel == null || syntaxRoot == null) return [];
 
-            var resultsList = new List<CompletionResult>();
+            var resultList = new List<CompletionResult>();
 
             foreach (var item in completions.ItemsList)
             {
-                var detailText = await completionService.GetDescriptionAsync(document, item, CancellationToken.None);
+                // Roslyn が想定する挿入テキストと置換範囲を取得
+                var change = await completionService.GetChangeAsync(document, item);
+                if (change == null) continue;
 
-                resultsList.Add(new CompletionResult
+                // 補完アイテムの詳細説明を取得
+                var desc = await completionService.GetDescriptionAsync(document, item);
+                var detail = desc?.Text ?? string.Empty;
+
+                // 補完処理の詳細を取得
+                var textChangeDto = new TextChangeDto
+                {
+                    Start = change.TextChange.Span.Start,
+                    End = change.TextChange.Span.End,
+                    NewText = change.TextChange.NewText
+                };
+                var textChangesDto = change.TextChanges.Select(tc => new TextChangeDto
+                {
+                    Start = tc.Span.Start,
+                    End = tc.Span.End,
+                    NewText = tc.NewText
+                }).ToArray();
+
+                resultList.Add(new CompletionResult
                 {
                     Label = item.DisplayText,
                     Kind = item.Tags.FirstOrDefault() ?? "Text",
-                    InsertText = item.DisplayText,
-                    Detail = detailText?.Text ?? string.Empty,
+                    Detail = detail,
+                    MainTextChange = textChangeDto,
+                    AdditionalTextChanges = textChangesDto
                 });
             }
 
-            var results = resultsList.ToArray();
+            var results = resultList.ToArray();
             _cache.Set(cacheKey, results, TimeSpan.FromMinutes(5));
 
             return results;

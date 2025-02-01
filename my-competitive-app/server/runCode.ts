@@ -103,21 +103,56 @@ function sanitizeOutput(output: string): string {
   let sanitizedOutput = output.replace(pathRegex, '[PATH]');
   sanitizedOutput = sanitizedOutput.replace(lineNumberRegex, '[LINE INFO]');
 
-  return sanitizedOutput;
+  return sanitizedOutput.trim();
 }
 
-// 共通のコード実行ロジック
+function normalizeOutput(output: string): string {
+  return output
+    .replace(/\r\n/g, '\n') // 改行コードを統一
+    .trim(); // 両端の空白を削除
+}
+
+// -------------------------------------------------------------------------
+// コマンド実行ロジック
+// -------------------------------------------------------------------------
+
+/**
+ * コマンドを実行し、標準出力と標準エラーを取得する。
+ * 
+ * @param cmd 実行コマンド
+ * @param args コマンド引数
+ * @param cwd カレントディレクトリ
+ * @param input 標準入力に書き込む内容
+ * @param enableTimeout 実行時にタイムアウトをかけるか (ビルド時は false, 実行時は true)
+ * @param timeoutMs タイムアウトまでのミリ秒 (デフォルトは 15000ms)
+ */
 function executeCommand(
   cmd: string,
   args: string[],
   cwd: string,
-  input?: string
+  input?: string,
+  // タイムアウト機能を有効にするフラグ、デフォルト無効
+  enableTimeout: boolean = false,
+  // タイムアウト時間 (ms)
+  timeoutMs: number = 15000
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, shell: true });
 
     let stdout = '';
     let stderr = '';
+
+    let isTimeout = false;
+
+    // タイムアウトを設定するかどうか
+    let timeoutId: NodeJS.Timeout | null = null;
+    if (enableTimeout) {
+      timeoutId = setTimeout(() => {
+        // タイムアウト時に子プロセスを強制終了
+        isTimeout = true;
+        child.kill('SIGTERM');
+      }, timeoutMs);
+    }
 
     child.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -128,31 +163,37 @@ function executeCommand(
     });
 
     child.on('error', (error) => {
+      if (timeoutId) clearTimeout(timeoutId);
       reject(
         new CommandError(
           `コマンド実行エラー: ${sanitizeOutput(error.message)}`,
           sanitizeOutput(stdout),
-          sanitizeOutput(stderr)
+          sanitizeOutput(stderr),
         )
       );
     });
 
     child.on('close', (code) => {
+      if (timeoutId) clearTimeout(timeoutId);
       const sanitizedStdout = sanitizeOutput(stdout);
       const sanitizedStderr = sanitizeOutput(stderr);
 
       if (code !== 0) {
+        let timeOutText = '';
+        if (isTimeout) {
+          timeOutText = '実行時間が15秒を超えたため強制終了しました。';
+        }
         reject(
           new CommandError(
             `コマンドが非正常終了しました。終了コード: ${code}`,
-            sanitizedStdout,
-            sanitizedStderr
+            `${timeOutText}${sanitizedStdout}`,
+            `${timeOutText}${sanitizedStderr}`,
           )
         );
       } else {
         resolve({
-          stdout: sanitizedStdout.trim(),
-          stderr: sanitizedStderr.trim(),
+          stdout: sanitizedStdout,
+          stderr: sanitizedStderr,
         });
       }
     });
@@ -163,6 +204,10 @@ function executeCommand(
     }
   });
 }
+
+// -------------------------------------------------------------------------
+// .NET関係
+// -------------------------------------------------------------------------
 
 // プロジェクトの初期化
 async function initializeCsProject(projectDir: string, userId: string): Promise<void> {
@@ -194,9 +239,9 @@ async function buildCsProject(projectDir: string, userId: string): Promise<void>
 // C#プロジェクトの実行
 async function runCsProject(projectDir: string, userId: string, input: string): Promise<string> {
   const projectFilePath = path.join(projectDir, `Project_${userId}.csproj`);
-  const runArgs = ['run', '--project', projectFilePath, '-c', 'Release'];
+  const runArgs = ['run', '--no-build', '-c', 'Release', '--project', projectFilePath];
   try {
-    const runResult = await executeCommand('dotnet', runArgs, projectDir, input);
+    const runResult = await executeCommand('dotnet', runArgs, projectDir, input, true);
     if (runResult.stderr) {
       console.error(`Run stderr for user ${userId}: ${runResult.stderr}`);
     }
@@ -235,12 +280,12 @@ export async function runCsCode(
   // ビルド
   await buildCsProject(projectDir, userId);
 
-  // 実行
+  // 実行（テストケースごとに実行）
   const testCaseResults: TestCaseResult[] = [];
   for (const tc of testCases) {
     try {
       const output = await runCsProject(projectDir, userId, tc.input);
-      const success = output.trim() === tc.expectedOutput.trim();
+      const success = normalizeOutput(output) === normalizeOutput(tc.expectedOutput);
       testCaseResults.push({
         input: tc.input,
         expectedOutput: tc.expectedOutput,
@@ -270,6 +315,10 @@ export async function runCsCode(
 
   return testCaseResults;
 }
+
+// -------------------------------------------------------------------------
+// TypeScript関係
+// -------------------------------------------------------------------------
 
 // TypeScriptコードのコンパイルと実行
 export async function runTsCode(
@@ -302,13 +351,13 @@ export async function runTsCode(
     }
   }
 
-  // 実行
+  // 実行（テストケースごとに実行）
   const testCaseResults: TestCaseResult[] = [];
   for (const tc of testCases) {
     try {
-      const runResult = await executeCommand('node', [jsFilePath], tempDir, tc.input);
+      const runResult = await executeCommand('node', [jsFilePath], tempDir, tc.input, true);
       const output = runResult.stdout;
-      const success = output.trim() === tc.expectedOutput.trim();
+      const success = normalizeOutput(output) === normalizeOutput(tc.expectedOutput);
       testCaseResults.push({
         input: tc.input,
         expectedOutput: tc.expectedOutput,

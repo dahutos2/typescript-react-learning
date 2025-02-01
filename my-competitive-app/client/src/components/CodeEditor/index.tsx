@@ -41,6 +41,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     const lightTheme: string = (language === 'csharp') ? 'csharp-light' : 'typescript-light';
     const editorTheme: string = (theme === 'dark') ? darkTheme : lightTheme;
 
+    // Editor内でコピーしたテキストを保持するための変数
+    const lastEditorCopiedText = useRef<string | null>(null);
+    const isLineCopyRef = useRef<boolean | null>(null);
+
     // Monaco Editor の各種オプション
     const editorOptions: monacoEditor.editor.IStandaloneEditorConstructionOptions = {
         fontSize,
@@ -58,7 +62,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         renderValidationDecorations: 'on',
         acceptSuggestionOnCommitCharacter: true,
         quickSuggestions: { other: true, comments: false, strings: true },
-        tabCompletion: 'on'
+        tabCompletion: 'on',
+        contextmenu: false,
+        scrollbar: { alwaysConsumeMouseWheel: false },
     };
 
     /**
@@ -134,6 +140,167 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             setupTypeScriptDefaults(monaco);
             registerTypeScriptProviders(monaco);
         }
+
+        // monaco-editorのKeyコードは以下になる
+        // https://microsoft.github.io/monaco-editor/typedoc/enums/KeyCode.html
+        // C: 33、S: 49、V: 52、X: 54
+        const KeyC = 33, KeyS = 49, KeyV = 52, KeyX = 54;
+
+        /**
+         * Editor内でコピー／カットされたテキストを記録する
+         */
+        const handleCopyOrCut = () => {
+            const selection = editor.getSelection();
+            if (!selection) return;
+            const model = editor.getModel();
+            if (!model) return;
+
+            let copiedText = '';
+            if (selection.isEmpty()) {
+                // 行コピー/行カット
+                const lineNumber = selection.startLineNumber;
+                const lineContent = model.getLineContent(lineNumber);
+                isLineCopyRef.current = true;
+                copiedText = `${lineContent}\n`;
+            } else {
+                // 通常の選択範囲
+                isLineCopyRef.current = false;
+                copiedText = model.getValueInRange(selection);
+            }
+            lastEditorCopiedText.current = copiedText;
+        }
+
+        /**
+         * 「Editor 内コピーだけ貼り付け可能」にする貼り付け処理
+         * - 行コピーの場合は「現在の行に挿入」してカーソルを最後へ移動
+         * - 範囲コピーの場合は現在の選択範囲を上書きし、カーソルを末尾へ
+         */
+        const handlePaste = async () => {
+            try {
+                // クリップボード文字列を取得 & 改行コードを LF(\n) に統一
+                let clipText = await navigator.clipboard.readText();
+                clipText = clipText.replace(/\r\n/g, '\n');
+
+                // Editor 内コピーと一致しなければ、
+                if (clipText !== lastEditorCopiedText.current) {
+                    window.dispatchEvent(new CustomEvent('monaco-editor-paste'));
+                    return;
+                }
+
+                // 選択範囲(= カーソル情報)が無い場合は何もせず終了
+                const selection = editor.getSelection();
+                if (!selection) return;
+
+                // 行コピー or 通常コピーで分岐
+                if (isLineCopyRef.current) {
+                    // ---- 行コピーの場合 ----
+                    const lineNumber = selection.startLineNumber;
+
+                    // 挿入先: (lineNumber, col=1) の位置に clipText を差し込む
+                    // ※ ここで "行を押し下げる" 挙動
+                    const insertPos = new monacoEditor.Range(
+                        lineNumber, 1,
+                        lineNumber, 1
+                    );
+
+                    // テキストの行数・最終行の文字長を算出
+                    let lines = clipText.split('\n');
+                    if (lines[lines.length - 1] === '') {
+                        // 最終行が空文字列(末尾改行)の場合は pop
+                        lines.pop();
+                    }
+                    const lineCount = lines.length;
+                    const lastLineLen = lines[lineCount - 1].length;
+
+                    // 貼り付け後のカーソル位置を、挿入した最終行の末尾に設定
+                    editor.executeEdits(
+                        null,
+                        [
+                            {
+                                range: insertPos,
+                                text: clipText,
+                                forceMoveMarkers: true
+                            }
+                        ],
+                        [
+                            // 貼り付け後のカーソル位置 (最後の行末尾)
+                            new monacoEditor.Selection(
+                                lineNumber + lineCount,
+                                lastLineLen + 1,
+                                lineNumber + lineCount,
+                                lastLineLen + 1
+                            )
+                        ]
+                    );
+                } else {
+                    // ---- 通常の範囲コピーの場合 ----
+                    // 選択範囲を上書きし、その末尾にカーソルを移動
+                    let lines = clipText.split('\n');
+                    if (lines[lines.length - 1] === '') {
+                        lines.pop();
+                    }
+                    const lineCount = lines.length;
+                    const lastLineLen = lines[lineCount - 1].length;
+
+                    const { startLineNumber, startColumn } = selection;
+                    const endLine = startLineNumber + (lineCount - 1);
+
+                    // 単一行 or 複数行でカーソル末尾の計算が変わる
+                    const endColumn = (lineCount === 1)
+                        ? (startColumn + lastLineLen)
+                        : (lastLineLen + 1);
+
+                    editor.executeEdits(
+                        null,
+                        [
+                            {
+                                range: selection,
+                                text: clipText,
+                                forceMoveMarkers: true
+                            }
+                        ],
+                        [
+                            new monacoEditor.Selection(
+                                endLine,
+                                endColumn,
+                                endLine,
+                                endColumn
+                            )
+                        ]
+                    );
+                }
+            } catch (err) {
+                console.warn('Clipboard read failed:', err);
+            }
+        }
+
+        // Ctrl/Cmd + C / V / S / X をフック
+        editor.onKeyDown(async (event) => {
+            // “Ctrl/Cmd が押されていなければ” 早期 return
+            if (!event.ctrlKey && !event.metaKey) return;
+
+            switch (event.keyCode) {
+                case KeyC:
+                case KeyX:
+                    handleCopyOrCut();
+                    break;
+
+                case KeyS:
+                    // 保存ショートカットをブロック
+                    event.preventDefault();
+                    break;
+
+                case KeyV:
+                    // 一旦標準の貼り付けをブロック
+                    event.preventDefault();
+                    await handlePaste();
+                    break;
+
+                default:
+                    // それ以外は何もしない
+                    break;
+            }
+        });
     };
 
     /**

@@ -510,21 +510,56 @@ function sanitizeOutput(output: string): string {
   let sanitizedOutput = output.replace(pathRegex, '[PATH]');
   sanitizedOutput = sanitizedOutput.replace(lineNumberRegex, '[LINE INFO]');
 
-  return sanitizedOutput;
+  return sanitizedOutput.trim();
 }
 
-// 共通のコード実行ロジック
+function normalizeOutput(output: string): string {
+  return output
+    .replace(/\r\n/g, '\n') // 改行コードを統一
+    .trim(); // 両端の空白を削除
+}
+
+// -------------------------------------------------------------------------
+// コマンド実行ロジック
+// -------------------------------------------------------------------------
+
+/**
+ * コマンドを実行し、標準出力と標準エラーを取得する。
+ * 
+ * @param cmd 実行コマンド
+ * @param args コマンド引数
+ * @param cwd カレントディレクトリ
+ * @param input 標準入力に書き込む内容
+ * @param enableTimeout 実行時にタイムアウトをかけるか (ビルド時は false, 実行時は true)
+ * @param timeoutMs タイムアウトまでのミリ秒 (デフォルトは 15000ms)
+ */
 function executeCommand(
   cmd: string,
   args: string[],
   cwd: string,
-  input?: string
+  input?: string,
+  // タイムアウト機能を有効にするフラグ、デフォルト無効
+  enableTimeout: boolean = false,
+  // タイムアウト時間 (ms)
+  timeoutMs: number = 15000
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, shell: true });
 
     let stdout = '';
     let stderr = '';
+
+    let isTimeout = false;
+
+    // タイムアウトを設定するかどうか
+    let timeoutId: NodeJS.Timeout | null = null;
+    if (enableTimeout) {
+      timeoutId = setTimeout(() => {
+        // タイムアウト時に子プロセスを強制終了
+        isTimeout = true;
+        child.kill('SIGTERM');
+      }, timeoutMs);
+    }
 
     child.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -535,31 +570,37 @@ function executeCommand(
     });
 
     child.on('error', (error) => {
+      if (timeoutId) clearTimeout(timeoutId);
       reject(
         new CommandError(
           `コマンド実行エラー: ${sanitizeOutput(error.message)}`,
           sanitizeOutput(stdout),
-          sanitizeOutput(stderr)
+          sanitizeOutput(stderr),
         )
       );
     });
 
     child.on('close', (code) => {
+      if (timeoutId) clearTimeout(timeoutId);
       const sanitizedStdout = sanitizeOutput(stdout);
       const sanitizedStderr = sanitizeOutput(stderr);
 
       if (code !== 0) {
+        let timeOutText = '';
+        if (isTimeout) {
+          timeOutText = '実行時間が15秒を超えたため強制終了しました。';
+        }
         reject(
           new CommandError(
             `コマンドが非正常終了しました。終了コード: ${code}`,
-            sanitizedStdout,
-            sanitizedStderr
+            `${timeOutText}${sanitizedStdout}`,
+            `${timeOutText}${sanitizedStderr}`,
           )
         );
       } else {
         resolve({
-          stdout: sanitizedStdout.trim(),
-          stderr: sanitizedStderr.trim(),
+          stdout: sanitizedStdout,
+          stderr: sanitizedStderr,
         });
       }
     });
@@ -570,6 +611,10 @@ function executeCommand(
     }
   });
 }
+
+// -------------------------------------------------------------------------
+// .NET関係
+// -------------------------------------------------------------------------
 
 // プロジェクトの初期化
 async function initializeCsProject(projectDir: string, userId: string): Promise<void> {
@@ -601,9 +646,9 @@ async function buildCsProject(projectDir: string, userId: string): Promise<void>
 // C#プロジェクトの実行
 async function runCsProject(projectDir: string, userId: string, input: string): Promise<string> {
   const projectFilePath = path.join(projectDir, `Project_${userId}.csproj`);
-  const runArgs = ['run', '--project', projectFilePath, '-c', 'Release'];
+  const runArgs = ['run', '--no-build', '-c', 'Release', '--project', projectFilePath];
   try {
-    const runResult = await executeCommand('dotnet', runArgs, projectDir, input);
+    const runResult = await executeCommand('dotnet', runArgs, projectDir, input, true);
     if (runResult.stderr) {
       console.error(`Run stderr for user ${userId}: ${runResult.stderr}`);
     }
@@ -642,12 +687,12 @@ export async function runCsCode(
   // ビルド
   await buildCsProject(projectDir, userId);
 
-  // 実行
+  // 実行（テストケースごとに実行）
   const testCaseResults: TestCaseResult[] = [];
   for (const tc of testCases) {
     try {
       const output = await runCsProject(projectDir, userId, tc.input);
-      const success = output.trim() === tc.expectedOutput.trim();
+      const success = normalizeOutput(output) === normalizeOutput(tc.expectedOutput);
       testCaseResults.push({
         input: tc.input,
         expectedOutput: tc.expectedOutput,
@@ -677,6 +722,10 @@ export async function runCsCode(
 
   return testCaseResults;
 }
+
+// -------------------------------------------------------------------------
+// TypeScript関係
+// -------------------------------------------------------------------------
 
 // TypeScriptコードのコンパイルと実行
 export async function runTsCode(
@@ -709,13 +758,13 @@ export async function runTsCode(
     }
   }
 
-  // 実行
+  // 実行（テストケースごとに実行）
   const testCaseResults: TestCaseResult[] = [];
   for (const tc of testCases) {
     try {
-      const runResult = await executeCommand('node', [jsFilePath], tempDir, tc.input);
+      const runResult = await executeCommand('node', [jsFilePath], tempDir, tc.input, true);
       const output = runResult.stdout;
-      const success = output.trim() === tc.expectedOutput.trim();
+      const success = normalizeOutput(output) === normalizeOutput(tc.expectedOutput);
       testCaseResults.push({
         input: tc.input,
         expectedOutput: tc.expectedOutput,
@@ -1203,6 +1252,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     const lightTheme: string = (language === 'csharp') ? 'csharp-light' : 'typescript-light';
     const editorTheme: string = (theme === 'dark') ? darkTheme : lightTheme;
 
+    // Editor内でコピーしたテキストを保持するための変数
+    const lastEditorCopiedText = useRef<string | null>(null);
+    const isLineCopyRef = useRef<boolean | null>(null);
+
     // Monaco Editor の各種オプション
     const editorOptions: monacoEditor.editor.IStandaloneEditorConstructionOptions = {
         fontSize,
@@ -1220,7 +1273,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         renderValidationDecorations: 'on',
         acceptSuggestionOnCommitCharacter: true,
         quickSuggestions: { other: true, comments: false, strings: true },
-        tabCompletion: 'on'
+        tabCompletion: 'on',
+        contextmenu: false,
+        scrollbar: { alwaysConsumeMouseWheel: false },
     };
 
     /**
@@ -1296,6 +1351,167 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             setupTypeScriptDefaults(monaco);
             registerTypeScriptProviders(monaco);
         }
+
+        // monaco-editorのKeyコードは以下になる
+        // https://microsoft.github.io/monaco-editor/typedoc/enums/KeyCode.html
+        // C: 33、S: 49、V: 52、X: 54
+        const KeyC = 33, KeyS = 49, KeyV = 52, KeyX = 54;
+
+        /**
+         * Editor内でコピー／カットされたテキストを記録する
+         */
+        const handleCopyOrCut = () => {
+            const selection = editor.getSelection();
+            if (!selection) return;
+            const model = editor.getModel();
+            if (!model) return;
+
+            let copiedText = '';
+            if (selection.isEmpty()) {
+                // 行コピー/行カット
+                const lineNumber = selection.startLineNumber;
+                const lineContent = model.getLineContent(lineNumber);
+                isLineCopyRef.current = true;
+                copiedText = `${lineContent}\n`;
+            } else {
+                // 通常の選択範囲
+                isLineCopyRef.current = false;
+                copiedText = model.getValueInRange(selection);
+            }
+            lastEditorCopiedText.current = copiedText;
+        }
+
+        /**
+         * 「Editor 内コピーだけ貼り付け可能」にする貼り付け処理
+         * - 行コピーの場合は「現在の行に挿入」してカーソルを最後へ移動
+         * - 範囲コピーの場合は現在の選択範囲を上書きし、カーソルを末尾へ
+         */
+        const handlePaste = async () => {
+            try {
+                // クリップボード文字列を取得 & 改行コードを LF(\n) に統一
+                let clipText = await navigator.clipboard.readText();
+                clipText = clipText.replace(/\r\n/g, '\n');
+
+                // Editor 内コピーと一致しなければ、
+                if (clipText !== lastEditorCopiedText.current) {
+                    window.dispatchEvent(new CustomEvent('monaco-editor-paste'));
+                    return;
+                }
+
+                // 選択範囲(= カーソル情報)が無い場合は何もせず終了
+                const selection = editor.getSelection();
+                if (!selection) return;
+
+                // 行コピー or 通常コピーで分岐
+                if (isLineCopyRef.current) {
+                    // ---- 行コピーの場合 ----
+                    const lineNumber = selection.startLineNumber;
+
+                    // 挿入先: (lineNumber, col=1) の位置に clipText を差し込む
+                    // ※ ここで "行を押し下げる" 挙動
+                    const insertPos = new monacoEditor.Range(
+                        lineNumber, 1,
+                        lineNumber, 1
+                    );
+
+                    // テキストの行数・最終行の文字長を算出
+                    let lines = clipText.split('\n');
+                    if (lines[lines.length - 1] === '') {
+                        // 最終行が空文字列(末尾改行)の場合は pop
+                        lines.pop();
+                    }
+                    const lineCount = lines.length;
+                    const lastLineLen = lines[lineCount - 1].length;
+
+                    // 貼り付け後のカーソル位置を、挿入した最終行の末尾に設定
+                    editor.executeEdits(
+                        null,
+                        [
+                            {
+                                range: insertPos,
+                                text: clipText,
+                                forceMoveMarkers: true
+                            }
+                        ],
+                        [
+                            // 貼り付け後のカーソル位置 (最後の行末尾)
+                            new monacoEditor.Selection(
+                                lineNumber + lineCount,
+                                lastLineLen + 1,
+                                lineNumber + lineCount,
+                                lastLineLen + 1
+                            )
+                        ]
+                    );
+                } else {
+                    // ---- 通常の範囲コピーの場合 ----
+                    // 選択範囲を上書きし、その末尾にカーソルを移動
+                    let lines = clipText.split('\n');
+                    if (lines[lines.length - 1] === '') {
+                        lines.pop();
+                    }
+                    const lineCount = lines.length;
+                    const lastLineLen = lines[lineCount - 1].length;
+
+                    const { startLineNumber, startColumn } = selection;
+                    const endLine = startLineNumber + (lineCount - 1);
+
+                    // 単一行 or 複数行でカーソル末尾の計算が変わる
+                    const endColumn = (lineCount === 1)
+                        ? (startColumn + lastLineLen)
+                        : (lastLineLen + 1);
+
+                    editor.executeEdits(
+                        null,
+                        [
+                            {
+                                range: selection,
+                                text: clipText,
+                                forceMoveMarkers: true
+                            }
+                        ],
+                        [
+                            new monacoEditor.Selection(
+                                endLine,
+                                endColumn,
+                                endLine,
+                                endColumn
+                            )
+                        ]
+                    );
+                }
+            } catch (err) {
+                console.warn('Clipboard read failed:', err);
+            }
+        }
+
+        // Ctrl/Cmd + C / V / S / X をフック
+        editor.onKeyDown(async (event) => {
+            // “Ctrl/Cmd が押されていなければ” 早期 return
+            if (!event.ctrlKey && !event.metaKey) return;
+
+            switch (event.keyCode) {
+                case KeyC:
+                case KeyX:
+                    handleCopyOrCut();
+                    break;
+
+                case KeyS:
+                    // 保存ショートカットをブロック
+                    event.preventDefault();
+                    break;
+
+                case KeyV:
+                    // 一旦標準の貼り付けをブロック
+                    event.preventDefault();
+                    await handlePaste();
+                    break;
+
+                default:
+                    // それ以外は何もしない
+                    break;
+            }
+        });
     };
 
     /**
@@ -1506,12 +1722,48 @@ export function registerCSharpProviders(
                     const kindEnum = (monaco.languages.CompletionItemKind as any)[item.kind]
                         || monaco.languages.CompletionItemKind.Text;
 
-                    return {
+                    // メイン編集の範囲を算出
+                    const main = item.mainTextChange;
+                    if (!main.newText) return null;
+                    const startPos = model.getPositionAt(main.start);
+                    const endPos = model.getPositionAt(main.end);
+                    const mainRange = new monaco.Range(
+                        startPos.lineNumber, startPos.column,
+                        endPos.lineNumber, endPos.column
+                    );
+                    // 追加編集の範囲を算出
+                    const additionalTextEdits: monacoEditor.languages.TextEdit[] = [];
+                    if (Array.isArray(item.additionalTextChanges)) {
+                        item.additionalTextChanges.forEach((tc: any) => {
+                            const s = model.getPositionAt(tc.start);
+                            const e = model.getPositionAt(tc.end);
+                            additionalTextEdits.push({
+                                range: new monaco.Range(s.lineNumber, s.column, e.lineNumber, e.column),
+                                text: tc.newText
+                            });
+                        });
+                    }
+                    // 複数変更ありの場合は、追加編集のみを行う
+                    const isMulti = additionalTextEdits.length > 1;
+                    const pos = model.getPositionAt(cursorPosition);
+                    const additionalRange = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
+                    const suggestion: monacoEditor.languages.CompletionItem = {
                         label: item.label,
                         kind: kindEnum,
-                        insertText: item.insertText,
-                        detail: item.detail,
+                        detail: item.detail || '',
+                        insertText: isMulti ? '' : main.newText,
+                        range: isMulti ? additionalRange : mainRange,
+                        additionalTextEdits: isMulti ? additionalTextEdits : undefined,
                     };
+
+                    // スニペット候補の場合は、余分なインデントが付加されるのを防ぐ
+                    if (kindEnum === monaco.languages.CompletionItemKind.Snippet) {
+                        suggestion.insertTextRules =
+                            monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet |
+                            monaco.languages.CompletionItemInsertTextRule.KeepWhitespace;
+                    }
+
+                    return suggestion;
                 });
 
                 return { suggestions };
@@ -2151,8 +2403,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <p>
                     【注意事項】
                     <br />
-                    ・本番中は他の画面を開いたり、別ウィンドウに切り替えたりすると
-                    <strong>失格</strong>となる可能性があります。
+                    ・本番中は他の画面から、入力エリアに対してペーストすると<strong>失格</strong>となります。
                     <br />
                     ・入力エリア以外のコピー操作なども<strong>失格</strong>の対象です。
                     <br />
@@ -2533,6 +2784,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
     const [language, setLanguage] = useState<LangOption>('csharp');
     const [userCode, setUserCode] = useState('');
     const [sampleIndex, setSampleIndex] = useState(0);
+    const [isTesting, setIsTesting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // 提出前動作確認用の状態
@@ -2635,16 +2887,15 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
         }
     };
 
-    const handleRunCode = async (isSubmit: boolean) => {
+    const handleTestRun = async () => {
+        setIsTesting(true);
+        await handlePreSubmit();
+        setIsTesting(false);
+    };
+    const handleSubmit = async () => {
         setIsSubmitting(true);
-
-        if (isSubmit) {
-            await executeAllTestCases();
-            onComplete();
-        } else {
-            await handlePreSubmit();
-        }
-
+        await executeAllTestCases();
+        onComplete();
         setIsSubmitting(false);
     };
 
@@ -2652,14 +2903,6 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
         setPreSubmitStatus(null);
         switchModeToTask();
     }
-
-    const handleTestRun = () => {
-        handleRunCode(false);
-    };
-
-    const handleSubmit = () => {
-        handleRunCode(true);
-    };
 
     const renderWithCodeBlocks = (lines: string[]) => {
         const elements: JSX.Element[] = [];
@@ -2795,11 +3038,11 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
                 </div>
                 <Button
                     onClick={handleTestRun}
-                    disabled={isSubmitting || sampleIndex === null}
+                    disabled={isSubmitting || isTesting || sampleIndex === null}
                     variant="secondary"
                     className={styles.submitButton}
                 >
-                    {isSubmitting ? '確認中...' : '提出前動作確認'}
+                    {isTesting ? '確認中...' : '提出前に動作確認する'}
                 </Button>
             </div>
 
@@ -2817,7 +3060,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
             {/* 提出ボタンを中央に配置 */}
             <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isTesting}
                 variant="primary"
                 className={styles.submitButton}
             >
@@ -3147,32 +3390,6 @@ function App() {
     }
   }, [userId, mode, completed]);
 
-  // タブが hidden になったら失格
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        handleDisqualification();
-      }
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [handleDisqualification]);
-
-  // ウィンドウがblur（フォーカスを失った）ときに失格
-  useEffect(() => {
-    const handleWindowBlur = () => {
-      handleDisqualification();
-    };
-
-    window.addEventListener('blur', handleWindowBlur);
-    return () => {
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, [handleDisqualification]);
-
   // コピー操作が行われたときに失格
   useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
@@ -3190,6 +3407,18 @@ function App() {
     document.addEventListener('copy', handleCopy);
     return () => {
       document.removeEventListener('copy', handleCopy);
+    };
+  }, [handleDisqualification]);
+
+  // MonacoEditor から発行されるカスタムイベント 'monaco-editor-paste' を監視
+  useEffect(() => {
+    const handleMonacoPaste = () => {
+      handleDisqualification();
+    };
+
+    window.addEventListener('monaco-editor-paste', handleMonacoPaste);
+    return () => {
+      window.removeEventListener('monaco-editor-paste', handleMonacoPaste);
     };
   }, [handleDisqualification]);
 
@@ -3296,6 +3525,7 @@ function App() {
 }
 
 export default App;
+
 ```
 
 ---
@@ -3841,8 +4071,16 @@ namespace CodeAnalysisServer.Api.Responses
     {
         public string Label { get; set; } = string.Empty;
         public string Kind { get; set; } = string.Empty;
-        public string InsertText { get; set; } = string.Empty;
         public string Detail { get; set; } = string.Empty;
+        public TextChangeDto? MainTextChange { get; set; }
+        public TextChangeDto[] AdditionalTextChanges { get; set; } = [];
+    }
+
+    public class TextChangeDto
+    {
+        public int Start { get; set; }
+        public int End { get; set; }
+        public string? NewText { get; set; }
     }
 }
 ```
@@ -4608,22 +4846,43 @@ namespace CodeAnalysisServer.Services
             var syntaxRoot = await document.GetSyntaxRootAsync();
             if (semanticModel == null || syntaxRoot == null) return [];
 
-            var resultsList = new List<CompletionResult>();
+            var resultList = new List<CompletionResult>();
 
             foreach (var item in completions.ItemsList)
             {
-                var detailText = await completionService.GetDescriptionAsync(document, item, CancellationToken.None);
+                // Roslyn が想定する挿入テキストと置換範囲を取得
+                var change = await completionService.GetChangeAsync(document, item);
+                if (change == null) continue;
 
-                resultsList.Add(new CompletionResult
+                // 補完アイテムの詳細説明を取得
+                var desc = await completionService.GetDescriptionAsync(document, item);
+                var detail = desc?.Text ?? string.Empty;
+
+                // 補完処理の詳細を取得
+                var textChangeDto = new TextChangeDto
+                {
+                    Start = change.TextChange.Span.Start,
+                    End = change.TextChange.Span.End,
+                    NewText = change.TextChange.NewText
+                };
+                var textChangesDto = change.TextChanges.Select(tc => new TextChangeDto
+                {
+                    Start = tc.Span.Start,
+                    End = tc.Span.End,
+                    NewText = tc.NewText
+                }).ToArray();
+
+                resultList.Add(new CompletionResult
                 {
                     Label = item.DisplayText,
                     Kind = item.Tags.FirstOrDefault() ?? "Text",
-                    InsertText = item.DisplayText,
-                    Detail = detailText?.Text ?? string.Empty,
+                    Detail = detail,
+                    MainTextChange = textChangeDto,
+                    AdditionalTextChanges = textChangesDto
                 });
             }
 
-            var results = resultsList.ToArray();
+            var results = resultList.ToArray();
             _cache.Set(cacheKey, results, TimeSpan.FromMinutes(5));
 
             return results;

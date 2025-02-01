@@ -45,32 +45,6 @@ function App() {
     }
   }, [userId, mode, completed]);
 
-  // タブが hidden になったら失格
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        handleDisqualification();
-      }
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [handleDisqualification]);
-
-  // ウィンドウがblur（フォーカスを失った）ときに失格
-  useEffect(() => {
-    const handleWindowBlur = () => {
-      handleDisqualification();
-    };
-
-    window.addEventListener('blur', handleWindowBlur);
-    return () => {
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, [handleDisqualification]);
-
   // コピー操作が行われたときに失格
   useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
@@ -88,6 +62,18 @@ function App() {
     document.addEventListener('copy', handleCopy);
     return () => {
       document.removeEventListener('copy', handleCopy);
+    };
+  }, [handleDisqualification]);
+
+  // MonacoEditor から発行されるカスタムイベント 'monaco-editor-paste' を監視
+  useEffect(() => {
+    const handleMonacoPaste = () => {
+      handleDisqualification();
+    };
+
+    window.addEventListener('monaco-editor-paste', handleMonacoPaste);
+    return () => {
+      window.removeEventListener('monaco-editor-paste', handleMonacoPaste);
     };
   }, [handleDisqualification]);
 

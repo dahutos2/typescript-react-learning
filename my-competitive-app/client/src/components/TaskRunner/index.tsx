@@ -18,6 +18,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
     const [language, setLanguage] = useState<LangOption>('csharp');
     const [userCode, setUserCode] = useState('');
     const [sampleIndex, setSampleIndex] = useState(0);
+    const [isTesting, setIsTesting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // 提出前動作確認用の状態
@@ -120,16 +121,15 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
         }
     };
 
-    const handleRunCode = async (isSubmit: boolean) => {
+    const handleTestRun = async () => {
+        setIsTesting(true);
+        await handlePreSubmit();
+        setIsTesting(false);
+    };
+    const handleSubmit = async () => {
         setIsSubmitting(true);
-
-        if (isSubmit) {
-            await executeAllTestCases();
-            onComplete();
-        } else {
-            await handlePreSubmit();
-        }
-
+        await executeAllTestCases();
+        onComplete();
         setIsSubmitting(false);
     };
 
@@ -137,14 +137,6 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
         setPreSubmitStatus(null);
         switchModeToTask();
     }
-
-    const handleTestRun = () => {
-        handleRunCode(false);
-    };
-
-    const handleSubmit = () => {
-        handleRunCode(true);
-    };
 
     const renderWithCodeBlocks = (lines: string[]) => {
         const elements: JSX.Element[] = [];
@@ -280,11 +272,11 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
                 </div>
                 <Button
                     onClick={handleTestRun}
-                    disabled={isSubmitting || sampleIndex === null}
+                    disabled={isSubmitting || isTesting || sampleIndex === null}
                     variant="secondary"
                     className={styles.submitButton}
                 >
-                    {isSubmitting ? '確認中...' : '提出前動作確認'}
+                    {isTesting ? '確認中...' : '提出前に動作確認する'}
                 </Button>
             </div>
 
@@ -302,7 +294,7 @@ const TaskRunner: React.FC<TaskRunnerProps> = ({ task, userId, mode, switchModeT
             {/* 提出ボタンを中央に配置 */}
             <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isTesting}
                 variant="primary"
                 className={styles.submitButton}
             >

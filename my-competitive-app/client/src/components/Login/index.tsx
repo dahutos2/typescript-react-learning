@@ -29,8 +29,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <p>
                     【注意事項】
                     <br />
-                    ・本番中は他の画面を開いたり、別ウィンドウに切り替えたりすると
-                    <strong>失格</strong>となる可能性があります。
+                    ・本番中は他の画面から、入力エリアに対してペーストすると<strong>失格</strong>となります。
                     <br />
                     ・入力エリア以外のコピー操作なども<strong>失格</strong>の対象です。
                     <br />

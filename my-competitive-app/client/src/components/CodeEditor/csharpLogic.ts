@@ -84,12 +84,48 @@ export function registerCSharpProviders(
                     const kindEnum = (monaco.languages.CompletionItemKind as any)[item.kind]
                         || monaco.languages.CompletionItemKind.Text;
 
-                    return {
+                    // メイン編集の範囲を算出
+                    const main = item.mainTextChange;
+                    if (!main.newText) return null;
+                    const startPos = model.getPositionAt(main.start);
+                    const endPos = model.getPositionAt(main.end);
+                    const mainRange = new monaco.Range(
+                        startPos.lineNumber, startPos.column,
+                        endPos.lineNumber, endPos.column
+                    );
+                    // 追加編集の範囲を算出
+                    const additionalTextEdits: monacoEditor.languages.TextEdit[] = [];
+                    if (Array.isArray(item.additionalTextChanges)) {
+                        item.additionalTextChanges.forEach((tc: any) => {
+                            const s = model.getPositionAt(tc.start);
+                            const e = model.getPositionAt(tc.end);
+                            additionalTextEdits.push({
+                                range: new monaco.Range(s.lineNumber, s.column, e.lineNumber, e.column),
+                                text: tc.newText
+                            });
+                        });
+                    }
+                    // 複数変更ありの場合は、追加編集のみを行う
+                    const isMulti = additionalTextEdits.length > 1;
+                    const pos = model.getPositionAt(cursorPosition);
+                    const additionalRange = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
+                    const suggestion: monacoEditor.languages.CompletionItem = {
                         label: item.label,
                         kind: kindEnum,
-                        insertText: item.insertText,
-                        detail: item.detail,
+                        detail: item.detail || '',
+                        insertText: isMulti ? '' : main.newText,
+                        range: isMulti ? additionalRange : mainRange,
+                        additionalTextEdits: isMulti ? additionalTextEdits : undefined,
                     };
+
+                    // スニペット候補の場合は、余分なインデントが付加されるのを防ぐ
+                    if (kindEnum === monaco.languages.CompletionItemKind.Snippet) {
+                        suggestion.insertTextRules =
+                            monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet |
+                            monaco.languages.CompletionItemInsertTextRule.KeepWhitespace;
+                    }
+
+                    return suggestion;
                 });
 
                 return { suggestions };
